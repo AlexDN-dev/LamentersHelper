@@ -1,0 +1,19 @@
+## Interface: 120001, 50503, 20505
+## Title: Lamenters Helper
+## Notes: Private raid helper for Lamenters guild
+## Author: Thiriall
+## Version: 0.1
+
+## SavedVariables: LamentersHelperDB
+
+core.lua
+config.lua
+
+modules/alerts.lua
+boss/imperator/grid.lua
+boss/imperator/voidmarked.lua
+
+ui/frame.lua
+ui/text.lua
+ui/mainpanel.lua
+ui/options.lua
