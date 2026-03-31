@@ -14,7 +14,8 @@ boss/imperator/grid.lua
 boss/imperator/voidmarked.lua
 boss/imperator/alerts.lua
 boss/vorasius/alerts.lua
-boss/salhadaar.lua
+boss/salhadaar/alerts.lua
+boss/drakes/alerts.lua
 
 ui/frame.lua
 ui/text.lua

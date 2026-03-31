@@ -1,4 +1,4 @@
-local addonName, M = ...
+/*local addonName, M = ...
 
 local RL_NOTE_PLAYER = "Thiri\195\163ll"
 local PREFIX = "LH_VM"
@@ -326,4 +326,4 @@ frame:SetScript("OnEvent", function(_, event, ...)
     end
 
     UpdateVoidMarkedAssignments()
-end)
+end)*/
