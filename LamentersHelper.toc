@@ -12,10 +12,8 @@ config.lua
 modules/alerts.lua
 boss/imperator/grid.lua
 boss/imperator/voidmarked.lua
-boss/crown/core.lua
-boss/crown/voidexpulsion.lua
-boss/crown/silverstrikearrow.lua
-boss/crown/aspectoftheend.lua
+boss/vorasius/alerts.lua
+boss/salhadaar.lua
 
 ui/frame.lua
 ui/text.lua
