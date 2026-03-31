@@ -64,6 +64,10 @@ local function ShowSection(sectionName)
             M.imperatorFrame:Hide()
         end
 
+        if M.crownFrame then
+            M.crownFrame:Hide()
+        end
+
         M.optionsFrame:Show()
     elseif sectionName == "imperator" then
         if not M.imperatorFrame then
@@ -74,7 +78,25 @@ local function ShowSection(sectionName)
             M.optionsFrame:Hide()
         end
 
+        if M.crownFrame then
+            M.crownFrame:Hide()
+        end
+
         M.imperatorFrame:Show()
+    elseif sectionName == "couronne" then
+        if not M.crownFrame then
+            M.crownFrame = M:CreateCrownPanel()
+        end
+
+        if M.optionsFrame then
+            M.optionsFrame:Hide()
+        end
+
+        if M.imperatorFrame then
+            M.imperatorFrame:Hide()
+        end
+
+        M.crownFrame:Show()
     else
         if M.optionsFrame then
             M.optionsFrame:Hide()
@@ -82,6 +104,10 @@ local function ShowSection(sectionName)
 
         if M.imperatorFrame then
             M.imperatorFrame:Hide()
+        end
+
+        if M.crownFrame then
+            M.crownFrame:Hide()
         end
     end
 end

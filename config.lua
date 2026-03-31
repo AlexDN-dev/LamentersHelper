@@ -17,7 +17,10 @@ local defaults = {
     gridEncounterID = 3176,
     gridPosX = 400,
     gridPosY = 0,
+    crownBossName = "Couronne du cosmos",
+    crownEncounterID = 3181,
     debugEncounter = false,
+    soundEnabled = true,
 }
 
 M.config = {}

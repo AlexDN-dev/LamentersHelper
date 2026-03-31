@@ -61,7 +61,6 @@ function M:CreateOptions()
             M.displayText:SetFont("Fonts\\FRIZQT__.TTF", value)
         end
 
-        LamentersHelperDB.textSize = value
         M.config.textSize = value
 
         if M.SaveConfig then
@@ -151,8 +150,25 @@ function M:CreateOptions()
     debugEncounterCheck:SetScript("OnClick", function(self)
         local isChecked = self:GetChecked() and true or false
 
-        LamentersHelperDB.debugEncounter = isChecked
         M.config.debugEncounter = isChecked
+
+        if M.SaveConfig then
+            M:SaveConfig()
+        end
+    end)
+
+    local soundEnabledCheck = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+    soundEnabledCheck:SetPoint("TOPLEFT", debugEncounterCheck, "BOTTOMLEFT", 0, -8)
+    soundEnabledCheck:SetChecked(M.config.soundEnabled)
+
+    local soundEnabledLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    soundEnabledLabel:SetPoint("LEFT", soundEnabledCheck, "RIGHT", 4, 0)
+    soundEnabledLabel:SetText("Sons activ\195\169s")
+
+    soundEnabledCheck:SetScript("OnClick", function(self)
+        local isChecked = self:GetChecked() and true or false
+
+        M.config.soundEnabled = isChecked
 
         if M.SaveConfig then
             M:SaveConfig()
@@ -228,7 +244,6 @@ function M:CreateImperatorPanel()
     alwaysShowCheck:SetScript("OnClick", function(self)
         local isChecked = self:GetChecked() and true or false
 
-        LamentersHelperDB.alwaysShowGrid = isChecked
         M.config.alwaysShowGrid = isChecked
 
         if M.SaveConfig then
@@ -243,6 +258,25 @@ function M:CreateImperatorPanel()
     local soundInfo = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     soundInfo:SetPoint("TOPLEFT", alwaysShowCheck, "BOTTOMLEFT", 0, -28)
     soundInfo:SetText("Sons utilises : soak.ogg et check_dispell.ogg")
+
+    return frame
+end
+
+function M:CreateCrownPanel()
+    local frame = CreateFrame("Frame", nil, M.content)
+    frame:SetAllPoints()
+
+    CreateSectionHeader(frame, M.config.crownBossName or "Couronne du cosmos", -28)
+
+    local subtitle = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    subtitle:SetPoint("TOPLEFT", 24, -68)
+    subtitle:SetText("Encounter ID: " .. tostring(M.config.crownEncounterID or 3181))
+
+    local info = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    info:SetPoint("TOPLEFT", 24, -118)
+    info:SetWidth(520)
+    info:SetJustifyH("LEFT")
+    info:SetText("Base du boss prete. On peut maintenant ajouter les mecaniques de Couronne du cosmos sur une structure dediee.")
 
     return frame
 end

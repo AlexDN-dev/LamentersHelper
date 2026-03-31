@@ -1,5 +1,7 @@
 local addonName, M = ...
 local RL_NOTE_PLAYER = "Thiri\195\163ll"
+local FONT_FLAGS = "OUTLINE"
+local MIN_VISIBLE_DURATION = 0.75
 
 local function GetCenterOffsets(frame, fallbackX, fallbackY)
     local centerX, centerY = frame:GetCenter()
@@ -28,12 +30,12 @@ local function UpdateChannelSize(channel)
     local size = M.config[channel.sizeKey]
 
     if channel.previewText then
-        channel.previewText:SetFont("Fonts\\FRIZQT__.TTF", size)
+        channel.previewText:SetFont("Fonts\\FRIZQT__.TTF", size, FONT_FLAGS)
         channel.previewText:SetTextColor(1, 1, 1, 1)
     end
 
     if channel.displayText then
-        channel.displayText:SetFont("Fonts\\FRIZQT__.TTF", size)
+        channel.displayText:SetFont("Fonts\\FRIZQT__.TTF", size, FONT_FLAGS)
         channel.displayText:SetTextColor(1, 1, 1, 1)
     end
 end
@@ -49,6 +51,7 @@ local function HideChannel(channel)
     end
 
     channel.displayText:SetText("")
+    channel.displayFrame:SetAlpha(1)
     channel.displayFrame:Hide()
 end
 
@@ -61,6 +64,7 @@ local function ShowChannel(channel, msg)
     UpdateChannelSize(channel)
 
     channel.displayFrame:Show()
+    channel.displayFrame:SetAlpha(1)
     channel.displayText:SetText(msg)
 
     if channel.displayFrame.timer then
@@ -69,9 +73,15 @@ local function ShowChannel(channel, msg)
     end
 
     if channel.durationKey then
-        channel.displayFrame.timer = C_Timer.NewTimer(M.config[channel.durationKey], function()
-            channel.displayText:SetText("")
-            channel.displayFrame:Hide()
+        local duration = tonumber(M.config[channel.durationKey]) or channel.defaultDuration or 3
+
+        if duration < MIN_VISIBLE_DURATION then
+            duration = math.max(channel.defaultDuration or MIN_VISIBLE_DURATION, MIN_VISIBLE_DURATION)
+        end
+
+        channel.displayFrame.timer = C_Timer.NewTimer(duration, function()
+            channel.displayFrame.timer = nil
+            HideChannel(channel)
         end)
     end
 end
@@ -122,7 +132,7 @@ local function CreateTextChannel(channel)
     previewText:SetJustifyH(channel.justifyH or "CENTER")
     previewText:SetJustifyV(channel.justifyV or "MIDDLE")
     previewText:SetText(channel.previewLabel)
-    previewText:SetFont("Fonts\\FRIZQT__.TTF", M.config[channel.sizeKey])
+    previewText:SetFont("Fonts\\FRIZQT__.TTF", M.config[channel.sizeKey], FONT_FLAGS)
     previewText:SetTextColor(1, 1, 1, 1)
 
     local display = CreateFrame("Frame", nil, UIParent)
@@ -135,7 +145,7 @@ local function CreateTextChannel(channel)
     displayText:SetPoint("BOTTOMRIGHT", -12, 12)
     displayText:SetJustifyH(channel.justifyH or "CENTER")
     displayText:SetJustifyV(channel.justifyV or "MIDDLE")
-    displayText:SetFont("Fonts\\FRIZQT__.TTF", M.config[channel.sizeKey])
+    displayText:SetFont("Fonts\\FRIZQT__.TTF", M.config[channel.sizeKey], FONT_FLAGS)
     displayText:SetTextColor(1, 1, 1, 1)
 
     display:Hide()
@@ -153,6 +163,7 @@ local globalChannel = {
     posYKey = "posY",
     sizeKey = "textSize",
     durationKey = "textDuration",
+    defaultDuration = 4,
     previewLabel = "GLOBAL TEXT",
 }
 
@@ -163,6 +174,7 @@ local privateChannel = {
     posYKey = "privatePosY",
     sizeKey = "privateTextSize",
     durationKey = "privateTextDuration",
+    defaultDuration = 5,
     previewLabel = "PRIVATE TEXT",
 }
 
@@ -173,6 +185,7 @@ local rlNoteChannel = {
     posYKey = "rlNotePosY",
     sizeKey = "rlNoteTextSize",
     durationKey = nil,
+    persistent = true,
     previewLabel = "RL NOTE",
     justifyH = "LEFT",
     justifyV = "TOP",
