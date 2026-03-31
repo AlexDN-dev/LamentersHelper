@@ -31,9 +31,6 @@ end
 
 local function ShowAlert(msg)
     M:ShowText(msg)
-    if M.PlayAssetSound then
-        M:PlayAssetSound("assets\\soak.ogg")
-    end
     C_Timer.After(M.config and M.config.textDuration or 4, function()
         M:HideText()
     end)
@@ -76,9 +73,6 @@ local function OnCombatLogEvent()
             ShowAlert("UMBRAL COLLAPSE — SOAK !")
             if destGUID == UnitGUID("player") then
                 M:ShowPrivateText("UMBRAL COLLAPSE — ALLEZ AU MARQUEUR !")
-                if M.PlayAssetSound then
-                    M:PlayAssetSound("assets\\check_dispell.ogg")
-                end
                 C_Timer.After(M.config and M.config.privateTextDuration or 5, function()
                     M:HidePrivateText()
                 end)
@@ -129,7 +123,4 @@ SLASH_LHIMPERTEST1 = "/lhimpertest"
 SlashCmdList["LHIMPERTEST"] = function()
     ShowAlert("SHADOW'S ADVANCE — PHASE PLATEAU !")
     M:ShowPrivateText("UMBRAL COLLAPSE — ALLEZ AU MARQUEUR !")
-    if M.PlayAssetSound then
-        M:PlayAssetSound("assets\\check_dispell.ogg")
-    end
 end

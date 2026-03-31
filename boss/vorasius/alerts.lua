@@ -30,9 +30,6 @@ end
 
 local function ShowAlert(msg)
     M:ShowText(msg)
-    if M.PlayAssetSound then
-        M:PlayAssetSound("assets\\soak.ogg")
-    end
     C_Timer.After(M.config and M.config.textDuration or 4, function()
         M:HideText()
     end)

@@ -34,9 +34,6 @@ end
 
 local function ShowAlert(msg)
     M:ShowText(msg)
-    if M.PlayAssetSound then
-        M:PlayAssetSound("assets\\soak.ogg")
-    end
     C_Timer.After(M.config and M.config.textDuration or 4, function()
         M:HideText()
     end)
@@ -80,9 +77,6 @@ local function OnCombatLogEvent()
         elseif spellID == SPELL.DREAD_BREATH then
             if destGUID == UnitGUID("player") then
                 M:ShowPrivateText("DREAD BREATH — SORTEZ SUR LE CÔTÉ !")
-                if M.PlayAssetSound then
-                    M:PlayAssetSound("assets\\check_dispell.ogg")
-                end
                 C_Timer.After(M.config and M.config.privateTextDuration or 5, function()
                     M:HidePrivateText()
                 end)
@@ -92,9 +86,6 @@ local function OnCombatLogEvent()
         elseif spellID == SPELL.DIMINISH then
             if destGUID == UnitGUID("player") then
                 M:ShowPrivateText("DIMINISH — NE SOAKEZ PLUS GLOOM !")
-                if M.PlayAssetSound then
-                    M:PlayAssetSound("assets\\check_dispell.ogg")
-                end
                 C_Timer.After(M.config and M.config.privateTextDuration or 5, function()
                     M:HidePrivateText()
                 end)
@@ -142,7 +133,4 @@ SLASH_LHDRAKESTEST1 = "/lhdrakestest"
 SlashCmdList["LHDRAKESTEST"] = function()
     ShowAlert("GLOOM — ÉQUIPE SOAK EN POSITION !")
     M:ShowPrivateText("DREAD BREATH — SORTEZ SUR LE CÔTÉ !")
-    if M.PlayAssetSound then
-        M:PlayAssetSound("assets\\check_dispell.ogg")
-    end
 end

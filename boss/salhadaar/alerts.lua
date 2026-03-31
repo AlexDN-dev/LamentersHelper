@@ -33,9 +33,6 @@ end
 
 local function ShowAlert(msg)
     M:ShowText(msg)
-    if M.PlayAssetSound then
-        M:PlayAssetSound("assets\\soak.ogg")
-    end
     C_Timer.After(M.config and M.config.textDuration or 4, function()
         M:HideText()
     end)
@@ -79,9 +76,6 @@ local function OnCombatLogEvent()
         if spellID == SPELL.DESPOTIC_COMMAND_DEBUFF then
             if destGUID == UnitGUID("player") then
                 M:ShowPrivateText("DESPOTIC COMMAND — BOUGEZ !")
-                if M.PlayAssetSound then
-                    M:PlayAssetSound("assets\\check_dispell.ogg")
-                end
                 C_Timer.After(M.config and M.config.privateTextDuration or 5, function()
                     M:HidePrivateText()
                 end)
@@ -144,7 +138,4 @@ SLASH_LHSALHADAARTEST1 = "/lhsaltest"
 SlashCmdList["LHSALHADAARTEST"] = function()
     ShowAlert("TWISTING OBSCURITY — SOINS RAID !")
     M:ShowPrivateText("DESPOTIC COMMAND — BOUGEZ !")
-    if M.PlayAssetSound then
-        M:PlayAssetSound("assets\\check_dispell.ogg")
-    end
 end
