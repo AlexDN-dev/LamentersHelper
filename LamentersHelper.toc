@@ -16,6 +16,8 @@ boss/imperator/alerts.lua
 boss/vorasius/alerts.lua
 boss/salhadaar/alerts.lua
 boss/drakes/alerts.lua
+boss/vanguard/alerts.lua
+boss/crown/alerts.lua
 
 ui/frame.lua
 ui/text.lua
