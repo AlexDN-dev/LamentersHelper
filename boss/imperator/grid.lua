@@ -3,7 +3,7 @@ local addonName, M = ...
 local PLAYER_NAME = UnitName("player")
 local ROLE = "viewer"
 
-if PLAYER_NAME == "ThiriÃ£ll" then
+if PLAYER_NAME == "Thiri\195\163ll" then
     ROLE = "rl"
 elseif PLAYER_NAME == "Bananamonke" or PLAYER_NAME == "Asterawyn" then
     ROLE = "viewer"

@@ -59,7 +59,41 @@ function M:PlayAssetSound(relativePath)
         return true
     end
 
-    print("|cffff5555LamentersHelper: impossible de jouer le son|r " .. tostring(relativePath))
+    return false
+end
+
+function M:UnitHasAuraBySpellID(unit, spellID, filter)
+    local index = 1
+    local auraData
+
+    if C_UnitAuras and C_UnitAuras.GetAuraDataByIndex then
+        while true do
+            auraData = C_UnitAuras.GetAuraDataByIndex(unit, index, filter)
+            if not auraData then
+                return false
+            end
+
+            if auraData.spellId == spellID then
+                return true
+            end
+
+            index = index + 1
+        end
+    end
+
+    if AuraUtil and AuraUtil.FindAuraByName then
+        local spellName
+        if C_Spell and C_Spell.GetSpellInfo then
+            local info = C_Spell.GetSpellInfo(spellID)
+            spellName = info and info.name
+        elseif GetSpellInfo then
+            spellName = GetSpellInfo(spellID)
+        end
+        if spellName then
+            return AuraUtil.FindAuraByName(spellName, unit, filter) ~= nil
+        end
+    end
+
     return false
 end
 
@@ -79,13 +113,28 @@ end
 
 C_ChatInfo.RegisterAddonMessagePrefix("LH_CHECK")
 
+local checkActive = false
+
 function M:SendAddonCheck()
+    checkActive = true
     C_ChatInfo.SendAddonMessage("LH_CHECK", "ping", "RAID")
+    C_Timer.After(10, function()
+        checkActive = false
+    end)
 end
 
 function M:CHAT_MSG_ADDON(prefix, msg, channel, sender)
-    if prefix == "LH_CHECK" then
-        print(sender .. " has LamentersHelper")
+    if prefix ~= "LH_CHECK" then
+        return
+    end
+
+    local myName = UnitName("player")
+    local senderShort = string.match(sender, "^[^-]+") or sender
+
+    if msg == "ping" and senderShort ~= myName then
+        C_ChatInfo.SendAddonMessage("LH_CHECK", "pong", "RAID")
+    elseif msg == "pong" and checkActive then
+        print(senderShort .. " has LamentersHelper")
     end
 end
 

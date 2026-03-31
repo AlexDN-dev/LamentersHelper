@@ -21,6 +21,14 @@ local function GetShortName(name)
     return string.match(name, "^[^-]+") or name
 end
 
+local function GetFullName(unit)
+    local name, realm = UnitFullName(unit)
+    if realm and realm ~= "" then
+        return name .. "-" .. realm
+    end
+    return name or ""
+end
+
 local function NamesMatch(left, right)
     return GetShortName(left) == GetShortName(right)
 end
@@ -54,7 +62,7 @@ local function CollectMarkedPlayers()
     for index = 1, GetNumGroupMembers() do
         unit = "raid" .. index
         if UnitExists(unit) and IsTrackedAuraOnUnit(unit) then
-            playerName = GetUnitName(unit, true)
+            playerName = GetFullName(unit)
             table.insert(marked, playerName)
         end
     end
@@ -78,7 +86,7 @@ local function CollectHealers()
     for index = 1, GetNumGroupMembers() do
         unit = "raid" .. index
         if UnitExists(unit) and UnitGroupRolesAssigned(unit) == "HEALER" then
-            playerName = GetUnitName(unit, true)
+            playerName = GetFullName(unit)
             table.insert(healers, playerName)
         end
     end
@@ -100,7 +108,7 @@ local function GetPlayerClassToken(playerName)
 
     for index = 1, GetNumGroupMembers() do
         unit = "raid" .. index
-        if UnitExists(unit) and NamesMatch(GetUnitName(unit, true), playerName) then
+        if UnitExists(unit) and NamesMatch(GetFullName(unit), playerName) then
             _, classToken = UnitClass(unit)
             return classToken
         end
@@ -111,21 +119,35 @@ end
 
 local function GetClassColoredName(playerName)
     local classToken = GetPlayerClassToken(playerName)
-    local color
 
     if not classToken then
         return GetShortName(playerName)
     end
 
-    color = RAID_CLASS_COLORS[classToken]
-    if not color then
+    local r, g, b
+
+    if C_ClassColor and C_ClassColor.GetClassColor then
+        local color = C_ClassColor.GetClassColor(classToken)
+        if color then
+            r, g, b = color.r, color.g, color.b
+        end
+    end
+
+    if not r and RAID_CLASS_COLORS then
+        local color = RAID_CLASS_COLORS[classToken]
+        if color then
+            r, g, b = color.r, color.g, color.b
+        end
+    end
+
+    if not r then
         return GetShortName(playerName)
     end
 
     return string.format("|cff%02x%02x%02x%s|r",
-        math.floor(color.r * 255 + 0.5),
-        math.floor(color.g * 255 + 0.5),
-        math.floor(color.b * 255 + 0.5),
+        math.floor(r * 255 + 0.5),
+        math.floor(g * 255 + 0.5),
+        math.floor(b * 255 + 0.5),
         GetShortName(playerName)
     )
 end
@@ -136,7 +158,7 @@ local function BuildAssignments(markedPlayers, healers)
     local healerName
 
     if healCount == 0 then
-        healerName = GetUnitName("player", true)
+        healerName = GetFullName("player")
         healers = { healerName }
         healCount = 1
     end
@@ -228,7 +250,7 @@ local function BroadcastAssignments(assignments)
 end
 
 local function ApplyAssignments(assignments)
-    local myName = GetUnitName("player", true)
+    local myName = GetFullName("player")
     local privateText = BuildHealerText(assignments, myName)
     local textChanged = privateText ~= lastPrivateText
 
@@ -298,36 +320,10 @@ frame:SetScript("OnEvent", function(_, event, ...)
 
     if event == "UNIT_AURA" then
         local unit = ...
-        if not unit or not string.match(unit, "^raid%d+$") then
+        if not unit or (unit ~= "player" and not string.match(unit, "^raid%d+$")) then
             return
         end
     end
 
     UpdateVoidMarkedAssignments()
 end)
-
-SLASH_LHVOIDTEST1 = "/lhvoidtest"
-
-SlashCmdList["LHVOIDTEST"] = function()
-    local myName = GetShortName(GetUnitName("player", true))
-
-    M:ShowPrivateText("DISPEL " .. GetClassColoredName(myName))
-
-    if M.PlayAssetSound then
-        M:PlayAssetSound("assets\\check_dispell.ogg")
-    end
-
-    if IsController() then
-        M:ShowRLNote(table.concat({
-            "SOAK 1 :",
-            myName .. " -> " .. myName,
-            "Testheal -> " .. myName,
-            "SOAK 2 :",
-            "Testmage -> Healalpha",
-            "Testlock -> Healbeta",
-            "SOAK 3 :",
-            "Testhunt -> Healgamma",
-            "Testrogue -> Healdelta",
-        }, "\n"))
-    end
-end
