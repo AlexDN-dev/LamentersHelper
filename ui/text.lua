@@ -63,9 +63,10 @@ local function ShowChannel(channel, msg)
     UpdateChannelPosition(channel)
     UpdateChannelSize(channel)
 
-    channel.displayFrame:Show()
-    channel.displayFrame:SetAlpha(1)
     channel.displayText:SetText(msg)
+    channel.displayFrame:SetAlpha(0)
+    channel.displayFrame:Show()
+    UIFrameFadeIn(channel.displayFrame, 0.5, 0, 1)
 
     if channel.displayFrame.timer then
         channel.displayFrame.timer:Cancel()
@@ -134,6 +135,8 @@ local function CreateTextChannel(channel)
     previewText:SetText(channel.previewLabel)
     previewText:SetFont("Fonts\\FRIZQT__.TTF", M.config[channel.sizeKey], FONT_FLAGS)
     previewText:SetTextColor(1, 1, 1, 1)
+    previewText:SetShadowOffset(1, -1)
+    previewText:SetShadowColor(0, 0, 0, 0.85)
 
     local display = CreateFrame("Frame", nil, UIParent)
     display:SetSize(channel.width, channel.height)
@@ -147,6 +150,8 @@ local function CreateTextChannel(channel)
     displayText:SetJustifyV(channel.justifyV or "MIDDLE")
     displayText:SetFont("Fonts\\FRIZQT__.TTF", M.config[channel.sizeKey], FONT_FLAGS)
     displayText:SetTextColor(1, 1, 1, 1)
+    displayText:SetShadowOffset(1, -1)
+    displayText:SetShadowColor(0, 0, 0, 0.85)
 
     display:Hide()
 
