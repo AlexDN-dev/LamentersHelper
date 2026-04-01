@@ -1,112 +1,109 @@
 local addonName, M = ...
 
--- Spell IDs — Lightblinded Vanguard, The Voidspire (Midnight 12.0)
--- ⚠️ ENCOUNTER_ID : à vérifier via debugEncounter = true au prochain pull
+-- Lightblinded Vanguard — The Voidspire (Midnight 12.0)
+-- IMPORTANT: eventInfo.spellID est tainté en Midnight. Identification par eventInfo.duration.
+-- Durées sources : BigWigs_TheVoidspire/Vanguard.lua (Heroic initial + Mythic)
+-- ⚠ Encounter très complexe (rotation ~159s, ~8 abilities) — debug pour les durées inconnues
 local ENCOUNTER_ID = 3180
-
-local SPELL = {
-    EXECUTION_SENTENCE        = 1248983,
-    SACRED_TOLL               = 1246749,
-    AURA_OF_WRATH             = 1248449,
-    DIVINE_TOLL               = 1248644,
-    AURA_OF_DEVOTION          = 1246162,
-    SACRED_SHIELD             = 1248674,
-    BLINDING_LIGHT            = 1258514,
-    SEARING_RADIANCE          = 1255738,
-    AURA_OF_PEACE             = 1250812,
-    ELEKK_CHARGE              = 1249130,
-    TYRS_WRATH                = 1248710,
-    -- private aura IDs for Execution Sentence targeted (BigWigs: 1248985, 1248994)
-    EXECUTION_SENTENCE_PRIV1  = 1248985,
-    EXECUTION_SENTENCE_PRIV2  = 1248994,
-    RETRIBUTION               = 1246174,
-}
 
 local inFight = false
 local trackedAuras = {}
+local activeTimers = {}
 local frame = CreateFrame("Frame")
 
 local function ShowAlert(msg, soundType)
     M:ShowText(msg)
     if M.PlayAlertSound then M:PlayAlertSound(soundType or "global") end
-    C_Timer.After(M.config and M.config.textDuration or 4, function()
-        M:HideText()
-    end)
+    C_Timer.After(M.config and M.config.textDuration or 4, function() M:HideText() end)
 end
 
 local function ShowPrivate(msg)
     M:ShowPrivateText(msg)
     if M.PlayAlertSound then M:PlayAlertSound("private") end
-    C_Timer.After(M.config and M.config.privateTextDuration or 5, function()
-        M:HidePrivateText()
-    end)
+    C_Timer.After(M.config and M.config.privateTextDuration or 5, function() M:HidePrivateText() end)
+end
+
+-- Durées BigWigs Vanguard — Héroïque (TimersHeroic) + Mythique (TimersMythic) :
+--   10       → Sacred Toll (Héroïque pull ; Mythique: 20)
+--   17       → Sacred Shield (toutes difficultés)
+--   18       → Divine Storm (Héroïque)
+--   23       → Sacred Toll (Normal pull)
+--   30       → Judgement Red (Héroïque pull)
+--   35       → Aura of Devotion (Héroïque/Normal pull)
+--   38       → Divine Toll (Héroïque ; Mythique: 26/29/22)
+--   47       → Searing Radiance (Héroïque ; Mythique: 7/59)
+--   66/12    → Avenger's Shield (Mythique) — pas d'alerte raid
+--   79/83    → Aura of Wrath (79=Mythique, 83=Héroïque)
+--   82/86    → Execution Sentence (82=Mythique, 86=Héroïque)
+--   131/132  → Aura of Peace (131=Héroïque, 132=Mythique)
+--   135      → Tyr's Wrath (Mythique)
+-- dur=15 = Avenger's Shield (Héroïque) — alerte tank, pas de message raid
+-- dur=45 = repeating timer post-pull non cartographié par BigWigs non plus
+local function BuildTimerCallback(d)
+    if d == 15 or d == 10 or d == 23 or d == 20 then
+        -- 15=Avenger's Shield(Héroïque, skip raid alert), 10/23/20=Sacred Toll
+        if d == 15 then return nil end  -- Avenger's Shield = tank ability, pas d'alerte
+        return function() ShowAlert("SACRED TOLL — CD DE SOIN !") end
+    elseif d == 17 or d == 18 then
+        return function() ShowAlert("SACRED SHIELD — BURST LE BOUCLIER !", "interrupt") end
+    elseif d == 30 or d == 82 or d == 86 then
+        -- 30=Judgement Red/ExecSentence(Héroïque pull), 82=Mythique, 86=Héroïque
+        return function() ShowAlert("EXECUTION SENTENCE — SOAK LES CERCLES !", "soak") end
+    elseif d == 35 then
+        return function() ShowAlert("AURA OF DEVOTION — BELLAMY SUR LE BORD !", "phase") end
+    elseif d == 38 or d == 26 or d == 29 or d == 22 then
+        return function() ShowAlert("DIVINE TOLL — ÉVITEZ LES BOUCLIERS !") end
+    elseif d == 47 or d == 7 or d == 59 then
+        return function() ShowAlert("SEARING RADIANCE — SOINS RAID !") end
+    elseif d == 79 or d == 83 then
+        return function() ShowAlert("AURA OF WRATH — VENEL SUR LE BORD !", "phase") end
+    elseif d == 131 or d == 132 then
+        return function() ShowAlert("AURA OF PEACE — SENN SUR LE BORD !", "phase") end
+    elseif d == 135 then
+        return function() ShowAlert("TYR'S WRATH — ROTATIONNEZ LA POSITION !") end
+    end
+    return nil
 end
 
 local function OnTimelineAdded(eventInfo)
-    if not eventInfo then return end
-    local spellID = eventInfo.spellID
-    if not spellID then return end
-
-    -- Commander Venel
-    if spellID == SPELL.EXECUTION_SENTENCE then
-        ShowAlert("EXECUTION SENTENCE — SOAK LES CERCLES !", "soak")
-    elseif spellID == SPELL.SACRED_TOLL then
-        ShowAlert("SACRED TOLL — CD DE SOIN !")
-    elseif spellID == SPELL.AURA_OF_WRATH then
-        ShowAlert("AURA OF WRATH — VENEL SUR LE BORD !", "phase")
-    -- General Bellamy
-    elseif spellID == SPELL.DIVINE_TOLL then
-        ShowAlert("DIVINE TOLL — ÉVITEZ LES BOUCLIERS !")
-    elseif spellID == SPELL.AURA_OF_DEVOTION then
-        ShowAlert("AURA OF DEVOTION — BELLAMY SUR LE BORD !", "phase")
-    -- Chaplain Senn
-    elseif spellID == SPELL.SACRED_SHIELD then
-        ShowAlert("SACRED SHIELD — BURST LE BOUCLIER !", "interrupt")
-    elseif spellID == SPELL.BLINDING_LIGHT then
-        ShowAlert("BLINDING LIGHT — INTERROMPRE !", "interrupt")
-    elseif spellID == SPELL.SEARING_RADIANCE then
-        ShowAlert("SEARING RADIANCE — SOINS RAID !")
-    elseif spellID == SPELL.AURA_OF_PEACE then
-        ShowAlert("AURA OF PEACE — SENN SUR LE BORD !", "phase")
-    elseif spellID == SPELL.TYRS_WRATH then
-        ShowAlert("TYR'S WRATH — ROTATIONNEZ LA POSITION !")
+    if not eventInfo or eventInfo.source ~= 0 then return end
+    local d = math.floor(eventInfo.duration + 0.5)
+    local cb = BuildTimerCallback(d)
+    if cb then
+        activeTimers[eventInfo.id] = cb
+    elseif M.config and M.config.debugEncounter then
+        print(string.format("|cff00ff00LH Debug|r VANGUARD TIMELINE dur=%.1f id=%d", eventInfo.duration, eventInfo.id))
     end
 end
 
 local function OnTimelineStateChanged(eventID)
     local state = C_EncounterTimeline.GetEventState(eventID)
-    if state ~= 2 then return end -- 2 = Finished
-    local info = C_EncounterTimeline.GetEventInfo(eventID)
-    if not info then return end
-    local spellID = info.spellID
-    if not spellID then return end
-
-    if spellID == SPELL.ELEKK_CHARGE then
-        ShowAlert("ELEKK CHARGE — ESQUIVEZ !")
+    if state == 2 then
+        local cb = activeTimers[eventID]
+        if cb then cb() end
+    end
+    if state == 2 or state == 3 then
+        activeTimers[eventID] = nil
     end
 end
 
 local function OnUnitAura(unit)
-    if unit == "player" then
-        local exec = C_UnitAuras.GetPlayerAuraBySpellID(SPELL.EXECUTION_SENTENCE_PRIV1)
-                  or C_UnitAuras.GetPlayerAuraBySpellID(SPELL.EXECUTION_SENTENCE_PRIV2)
-        if exec and not trackedAuras.exec then
-            trackedAuras.exec = true
-            ShowPrivate("EXECUTION SENTENCE — NE SUPERPOSEZ PAS !")
-        elseif not exec then
-            trackedAuras.exec = nil
-        end
-        return
+    if unit ~= "player" then return end
+    -- Auras boss taintées en Midnight (spellId secret) — player seulement
+    local exec = C_UnitAuras.GetPlayerAuraBySpellID(1248985)
+              or C_UnitAuras.GetPlayerAuraBySpellID(1248994)
+    if exec and not trackedAuras.exec then
+        trackedAuras.exec = true
+        ShowPrivate("EXECUTION SENTENCE — NE SUPERPOSEZ PAS !")
+    elseif not exec then
+        trackedAuras.exec = nil
     end
+end
 
-    local retri = C_UnitAuras.GetAuraDataBySpellID(unit, SPELL.RETRIBUTION, "HELPFUL")
-    local key = unit .. "_retri"
-    if retri and not trackedAuras[key] then
-        trackedAuras[key] = true
-        ShowAlert("RETRIBUTION — ÉQUILIBREZ LES PV !", "phase")
-    elseif not retri then
-        trackedAuras[key] = nil
-    end
+local function ResetState()
+    inFight = false
+    trackedAuras = {}
+    activeTimers = {}
 end
 
 frame:RegisterEvent("ENCOUNTER_START")
@@ -114,7 +111,7 @@ frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED")
-frame:RegisterUnitEvent("UNIT_AURA", "boss1", "boss2", "boss3", "player")
+frame:RegisterUnitEvent("UNIT_AURA", "player")
 
 frame:SetScript("OnEvent", function(_, event, ...)
     if event == "ENCOUNTER_START" then
@@ -123,8 +120,8 @@ frame:SetScript("OnEvent", function(_, event, ...)
             print(string.format("|cff00ff00LH Debug|r START: %s (ID: %s)", tostring(encounterName), tostring(encounterID)))
         end
         if encounterID == ENCOUNTER_ID then
+            ResetState()
             inFight = true
-            trackedAuras = {}
         end
     elseif event == "ENCOUNTER_END" then
         local encounterID, encounterName = ...
@@ -132,14 +129,12 @@ frame:SetScript("OnEvent", function(_, event, ...)
             print(string.format("|cff00ff00LH Debug|r END: %s (ID: %s)", tostring(encounterName), tostring(encounterID)))
         end
         if encounterID == ENCOUNTER_ID then
-            inFight = false
-            trackedAuras = {}
+            ResetState()
             M:HideText()
             M:HidePrivateText()
         end
     elseif event == "PLAYER_ENTERING_WORLD" then
-        inFight = false
-        trackedAuras = {}
+        ResetState()
     elseif event == "ENCOUNTER_TIMELINE_EVENT_ADDED" then
         if not inFight then return end
         OnTimelineAdded(...)

@@ -1,5 +1,21 @@
 local addonName, M = ...
 
+-- C_UnitAuras.GetAuraDataBySpellID n'existe pas en WoW 12.0 Midnight.
+-- On itère avec GetAuraDataByIndex, qui est stable depuis WoW 10.0.
+-- IMPORTANT: aura.spellId est une "Secret Value" taintée sur les unités boss/cible.
+-- Cette fonction ne fonctionne que sur "player" (auras non-privées du joueur).
+function M.FindAura(unit, spellID, filter)
+    if unit ~= "player" then return nil end
+    local i = 1
+    while true do
+        local aura = C_UnitAuras.GetAuraDataByIndex(unit, i, filter)
+        if not aura then break end
+        if aura.spellId == spellID then return aura end
+        i = i + 1
+    end
+    return nil
+end
+
 M.frame = CreateFrame("Frame")
 
 M.frame:SetScript("OnEvent", function(self, event, ...)

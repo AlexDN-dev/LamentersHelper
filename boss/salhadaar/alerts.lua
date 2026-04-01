@@ -1,70 +1,105 @@
 local addonName, M = ...
 
--- Spell IDs — Fallen-King Salhadaar, The Voidspire (Midnight 12.0)
--- Source : WarcraftLogs Mythic kill 28/03/2026 (Report #kisasmukana, 6:03)
+-- Fallen-King Salhadaar — The Voidspire (Midnight 12.0)
+-- IMPORTANT: eventInfo.spellID est tainté en Midnight. Identification par eventInfo.duration.
+-- Durées sources : BigWigs_TheVoidspire/Salhadaar.lua (TimersOther = non-Mythic)
 local ENCOUNTER_ID = 3179
-
-local SPELL = {
-    TWISTING_OBSCURITY      = 1250686,
-    SHATTERING_TWILIGHT     = 1253032,
-    FRACTURED_PROJECTION    = 1254081,
-    DESPOTIC_COMMAND_CAST   = 1260823,
-    VOID_CONVERGENCE        = 1243453,
-    ENTROPIC_UNRAVELING     = 1246175,
-    UMBRAL_BEAMS            = 1260030,
-    DESPOTIC_COMMAND_DEBUFF = 1248697, -- private aura (BigWigs confirms same ID)
-    DESTABILIZING_STRIKES   = 1271579,
-}
-
-local DESTAB_ALERT_THRESHOLD = 5
 
 local inFight = false
 local destabStacks = 0
 local despoticActive = false
+local umbralBeamsActive = false
+local activeTimers = {}  -- eventID → callback
+local ambig45Count = 0   -- compteur pour les 3 abilities à ~45s (cyclent en ordre)
 local frame = CreateFrame("Frame")
 
 local function ShowAlert(msg, soundType)
     M:ShowText(msg)
     if M.PlayAlertSound then M:PlayAlertSound(soundType or "global") end
-    C_Timer.After(M.config and M.config.textDuration or 4, function()
-        M:HideText()
-    end)
+    C_Timer.After(M.config and M.config.textDuration or 4, function() M:HideText() end)
 end
 
 local function ShowPrivate(msg)
     M:ShowPrivateText(msg)
     if M.PlayAlertSound then M:PlayAlertSound("private") end
-    C_Timer.After(M.config and M.config.privateTextDuration or 5, function()
-        M:HidePrivateText()
-    end)
+    C_Timer.After(M.config and M.config.privateTextDuration or 5, function() M:HidePrivateText() end)
+end
+
+-- Durées confirmées BigWigs Salhadaar (TimersOther) :
+--   11           → Void Convergence (pull)
+--   15           → Twisting Obscurity (pull)
+--   27           → Despotic Command (pull ; Mythic = 22)
+--   18           → Fractured Projection (pull ; Mythic = 27)
+--   42           → Shattering Twilight (pull ; Mythic = 44)
+--   100          → Entropic Unraveling
+--   ~46.5        → Void Convergence (répétition)
+--   ~46.0        → Despotic Command (répétition)
+--   ~45          → ambiguë : TW → FP → ST en rotation
+local function BuildTimerCallback(d, dExact)
+    if d == 11 then
+        return function() ShowAlert("VOID CONVERGENCE !") end
+    elseif d == 15 then
+        return function() ShowAlert("TWISTING OBSCURITY — SOINS RAID !") end
+    elseif d == 27 or d == 22 then
+        return function() ShowAlert("DESPOTIC COMMAND — UN JOUEUR CIBLÉ !", "soak") end
+    elseif d == 18 then
+        return function() ShowAlert("FRACTURED IMAGE INVOQUÉ — FOCUS L'ADD !") end
+    elseif d == 42 or d == 44 then
+        return function() ShowAlert("SHATTERING TWILIGHT — ATTENTION !") end
+    elseif d == 100 then
+        return function() ShowAlert("ENTROPIC UNRAVELING — MÉCANIQUE DE PHASE !", "phase") end
+    end
+
+    -- ~46.5 vs ~46 : distinguer par la demi-seconde
+    local dHalf = math.floor(dExact * 2 + 0.5) / 2  -- arrondi au 0.5 près
+    if dHalf == 46.5 then
+        return function() ShowAlert("VOID CONVERGENCE !") end
+    elseif dHalf == 46.0 then
+        return function() ShowAlert("DESPOTIC COMMAND — UN JOUEUR CIBLÉ !", "soak") end
+    elseif d == 45 then
+        -- Rotation TW → FP → ST
+        ambig45Count = ambig45Count + 1
+        local cycle = ambig45Count % 3
+        if cycle == 1 then
+            return function() ShowAlert("TWISTING OBSCURITY — SOINS RAID !") end
+        elseif cycle == 2 then
+            return function() ShowAlert("FRACTURED IMAGE INVOQUÉ — FOCUS L'ADD !") end
+        else
+            return function() ShowAlert("SHATTERING TWILIGHT — ATTENTION !") end
+        end
+    end
+    return nil
 end
 
 local function OnTimelineAdded(eventInfo)
-    if not eventInfo then return end
-    local spellID = eventInfo.spellID
-    if not spellID then return end
-
-    if spellID == SPELL.TWISTING_OBSCURITY then
-        ShowAlert("TWISTING OBSCURITY — SOINS RAID !")
-    elseif spellID == SPELL.SHATTERING_TWILIGHT then
-        ShowAlert("SHATTERING TWILIGHT — ATTENTION !")
-    elseif spellID == SPELL.FRACTURED_PROJECTION then
-        ShowAlert("FRACTURED IMAGE INVOQUÉ — FOCUS L'ADD !")
-    elseif spellID == SPELL.DESPOTIC_COMMAND_CAST then
-        ShowAlert("DESPOTIC COMMAND — UN JOUEUR CIBLÉ !", "soak")
-    elseif spellID == SPELL.VOID_CONVERGENCE then
-        ShowAlert("VOID CONVERGENCE !")
-    elseif spellID == SPELL.ENTROPIC_UNRAVELING then
-        ShowAlert("ENTROPIC UNRAVELING — MÉCANIQUE DE PHASE !", "phase")
-    elseif spellID == SPELL.UMBRAL_BEAMS then
-        ShowAlert("UMBRAL BEAMS — DÉPLACEZ-VOUS !", "phase")
+    if not eventInfo or eventInfo.source ~= 0 then return end
+    local dExact = eventInfo.duration
+    local d = math.floor(dExact + 0.5)
+    local cb = BuildTimerCallback(d, dExact)
+    if cb then
+        activeTimers[eventInfo.id] = cb
+    elseif M.config and M.config.debugEncounter then
+        print(string.format("|cff00ff00LH Debug|r SALHADAAR TIMELINE dur=%.1f id=%d", dExact, eventInfo.id))
     end
 end
+
+local function OnTimelineStateChanged(eventID)
+    local state = C_EncounterTimeline.GetEventState(eventID)
+    if state == 2 then
+        local cb = activeTimers[eventID]
+        if cb then cb() end
+    end
+    if state == 2 or state == 3 then
+        activeTimers[eventID] = nil
+    end
+end
+
+local DESTAB_ALERT_THRESHOLD = 5
 
 local function OnUnitAura(unit)
     if unit ~= "player" then return end
 
-    local despotic = C_UnitAuras.GetPlayerAuraBySpellID(SPELL.DESPOTIC_COMMAND_DEBUFF)
+    local despotic = C_UnitAuras.GetPlayerAuraBySpellID(1248697)  -- Despotic Command (BigWigs: 1248697)
     if despotic and not despoticActive then
         despoticActive = true
         ShowPrivate("DESPOTIC COMMAND — BOUGEZ !")
@@ -72,7 +107,15 @@ local function OnUnitAura(unit)
         despoticActive = false
     end
 
-    local aura = C_UnitAuras.GetAuraDataBySpellID("player", SPELL.DESTABILIZING_STRIKES, "HARMFUL")
+    local umbral = C_UnitAuras.GetPlayerAuraBySpellID(1260030)  -- Umbral Beams (BigWigs: 1260030 "underyou")
+    if umbral and not umbralBeamsActive then
+        umbralBeamsActive = true
+        ShowPrivate("UMBRAL BEAMS — BOUGEZ !")
+    elseif not umbral then
+        umbralBeamsActive = false
+    end
+
+    local aura = M.FindAura("player", 1271577, "HARMFUL")  -- Destabilizing Strikes (BigWigs: 1271577)
     if aura then
         local stacks = aura.applications or 1
         if stacks ~= destabStacks then
@@ -88,10 +131,20 @@ local function OnUnitAura(unit)
     end
 end
 
+local function ResetState()
+    inFight = false
+    destabStacks = 0
+    despoticActive = false
+    umbralBeamsActive = false
+    activeTimers = {}
+    ambig45Count = 0
+end
+
 frame:RegisterEvent("ENCOUNTER_START")
 frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
+frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED")
 frame:RegisterUnitEvent("UNIT_AURA", "player")
 
 frame:SetScript("OnEvent", function(_, event, ...)
@@ -101,9 +154,8 @@ frame:SetScript("OnEvent", function(_, event, ...)
             print(string.format("|cff00ff00LH Debug|r START: %s (ID: %s)", tostring(encounterName), tostring(encounterID)))
         end
         if encounterID == ENCOUNTER_ID then
+            ResetState()
             inFight = true
-            destabStacks = 0
-            despoticActive = false
         end
     elseif event == "ENCOUNTER_END" then
         local encounterID, encounterName = ...
@@ -111,19 +163,18 @@ frame:SetScript("OnEvent", function(_, event, ...)
             print(string.format("|cff00ff00LH Debug|r END: %s (ID: %s)", tostring(encounterName), tostring(encounterID)))
         end
         if encounterID == ENCOUNTER_ID then
-            inFight = false
-            destabStacks = 0
-            despoticActive = false
+            ResetState()
             M:HideText()
             M:HidePrivateText()
         end
     elseif event == "PLAYER_ENTERING_WORLD" then
-        inFight = false
-        destabStacks = 0
-        despoticActive = false
+        ResetState()
     elseif event == "ENCOUNTER_TIMELINE_EVENT_ADDED" then
         if not inFight then return end
         OnTimelineAdded(...)
+    elseif event == "ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED" then
+        if not inFight then return end
+        OnTimelineStateChanged(...)
     elseif event == "UNIT_AURA" then
         if not inFight then return end
         OnUnitAura(...)

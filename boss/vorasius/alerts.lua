@@ -1,66 +1,70 @@
 local addonName, M = ...
 
--- Spell IDs — Vorasius, The Voidspire (Midnight 12.0)
--- Source : WarcraftLogs Mythic kill 29/03/2026 (Report njAfzM2k9ZJqrypw)
+-- Vorasius — The Voidspire (Midnight 12.0)
+-- IMPORTANT: eventInfo.spellID est tainté en Midnight. Identification par eventInfo.duration.
+-- Durées sources : BigWigs_TheVoidspire/Vorasius.lua
 local ENCOUNTER_ID = 3177
-
-local SPELL = {
-    VOID_BREATH_CAST        = 1257629,
-    SHADOWCLAW_SLAM_CAST    = 1272329,
-    PRIMORDIAL_ROAR         = 1260052,
-    PARASITE_EXPULSION      = 1254199,
-    OVERPOWERING_PULSE      = 1244419,
-    FOCUSED_AGGRESSION      = 1258967,
-    BLISTERBURST            = 1259186, -- private aura (BigWigs confirms same ID)
-    SMASHED                 = 1241844,
-}
-
-local SMASHED_ALERT_THRESHOLD = 3
 
 local inFight = false
 local smashedStacks = 0
 local blistered = false
+local activeTimers = {}  -- eventID → callback, pour STATE_CHANGED
 local frame = CreateFrame("Frame")
 
 local function ShowAlert(msg, soundType)
     M:ShowText(msg)
     if M.PlayAlertSound then M:PlayAlertSound(soundType or "global") end
-    C_Timer.After(M.config and M.config.textDuration or 4, function()
-        M:HideText()
-    end)
+    C_Timer.After(M.config and M.config.textDuration or 4, function() M:HideText() end)
 end
 
 local function ShowPrivate(msg)
     M:ShowPrivateText(msg)
     if M.PlayAlertSound then M:PlayAlertSound("private") end
-    C_Timer.After(M.config and M.config.privateTextDuration or 5, function()
-        M:HidePrivateText()
-    end)
+    C_Timer.After(M.config and M.config.privateTextDuration or 5, function() M:HidePrivateText() end)
+end
+
+-- Durées confirmées BigWigs Vorasius :
+--   16, 136, 240 → Shadowclaw Slam
+--   57, 123      → Parasite Expulsion
+--   6, 120       → Primordial Roar
+local function BuildTimerCallback(d)
+    if d == 16 or d == 136 or d == 240 then
+        return function() ShowAlert("SHADOWCLAW SLAM — ÉLOIGNEZ-VOUS !") end
+    elseif d == 57 or d == 123 then
+        return function() ShowAlert("BLISTERCREEPS — FOCUS LES ADDS !") end
+    elseif d == 6 or d == 120 then
+        return function() ShowAlert("PRIMORDIAL ROAR — TENEZ VOTRE POSITION !") end
+    end
+    return nil
 end
 
 local function OnTimelineAdded(eventInfo)
-    if not eventInfo then return end
-    local spellID = eventInfo.spellID
-    if not spellID then return end
-
-    if spellID == SPELL.VOID_BREATH_CAST then
-        ShowAlert("VOID BREATH — ÉVITEZ LE CÔNE !")
-    elseif spellID == SPELL.SHADOWCLAW_SLAM_CAST then
-        ShowAlert("SHADOWCLAW SLAM — ÉLOIGNEZ-VOUS !")
-    elseif spellID == SPELL.PRIMORDIAL_ROAR then
-        ShowAlert("PRIMORDIAL ROAR — TENEZ VOTRE POSITION !")
-    elseif spellID == SPELL.PARASITE_EXPULSION then
-        ShowAlert("BLISTERCREEPS — FOCUS LES ADDS !")
-    elseif spellID == SPELL.OVERPOWERING_PULSE then
-        ShowAlert("PULSE — APPROCHEZ LE BOSS !")
-    elseif spellID == SPELL.FOCUSED_AGGRESSION then
-        ShowAlert("⚠ ENRAGE — PUSH DPS MAXIMUM !", "phase")
+    if not eventInfo or eventInfo.source ~= 0 then return end
+    local d = math.floor(eventInfo.duration + 0.5)
+    local cb = BuildTimerCallback(d)
+    if cb then
+        activeTimers[eventInfo.id] = cb
+    elseif M.config and M.config.debugEncounter then
+        print(string.format("|cff00ff00LH Debug|r VORASIUS TIMELINE dur=%.1f id=%d", eventInfo.duration, eventInfo.id))
     end
 end
 
+local function OnTimelineStateChanged(eventID)
+    local state = C_EncounterTimeline.GetEventState(eventID)
+    if state == 2 then  -- Finished = ability fires
+        local cb = activeTimers[eventID]
+        if cb then cb() end
+    end
+    if state == 2 or state == 3 then
+        activeTimers[eventID] = nil
+    end
+end
+
+local SMASHED_ALERT_THRESHOLD = 3
+
 local function OnUnitAura(unit)
     if unit == "player" then
-        local blister = C_UnitAuras.GetPlayerAuraBySpellID(SPELL.BLISTERBURST)
+        local blister = C_UnitAuras.GetPlayerAuraBySpellID(1259186)  -- Blisterburst
         if blister and not blistered then
             blistered = true
             ShowPrivate("BLISTERBURST — +100% DÉGÂTS REÇUS (30s) !")
@@ -68,7 +72,7 @@ local function OnUnitAura(unit)
             blistered = false
         end
 
-        local aura = C_UnitAuras.GetAuraDataBySpellID("player", SPELL.SMASHED, "HARMFUL")
+        local aura = M.FindAura("player", 1241844, "HARMFUL")  -- Smashed
         if aura then
             local stacks = aura.applications or 1
             if stacks ~= smashedStacks then
@@ -80,14 +84,21 @@ local function OnUnitAura(unit)
         else
             smashedStacks = 0
         end
-        return
     end
+end
+
+local function ResetState()
+    inFight = false
+    smashedStacks = 0
+    blistered = false
+    activeTimers = {}
 end
 
 frame:RegisterEvent("ENCOUNTER_START")
 frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
+frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED")
 frame:RegisterUnitEvent("UNIT_AURA", "player")
 
 frame:SetScript("OnEvent", function(_, event, ...)
@@ -97,9 +108,8 @@ frame:SetScript("OnEvent", function(_, event, ...)
             print(string.format("|cff00ff00LH Debug|r START: %s (ID: %s)", tostring(encounterName), tostring(encounterID)))
         end
         if encounterID == ENCOUNTER_ID then
+            ResetState()
             inFight = true
-            smashedStacks = 0
-            blistered = false
         end
     elseif event == "ENCOUNTER_END" then
         local encounterID, encounterName = ...
@@ -107,19 +117,18 @@ frame:SetScript("OnEvent", function(_, event, ...)
             print(string.format("|cff00ff00LH Debug|r END: %s (ID: %s)", tostring(encounterName), tostring(encounterID)))
         end
         if encounterID == ENCOUNTER_ID then
-            inFight = false
-            smashedStacks = 0
-            blistered = false
+            ResetState()
             M:HideText()
             M:HidePrivateText()
         end
     elseif event == "PLAYER_ENTERING_WORLD" then
-        inFight = false
-        smashedStacks = 0
-        blistered = false
+        ResetState()
     elseif event == "ENCOUNTER_TIMELINE_EVENT_ADDED" then
         if not inFight then return end
         OnTimelineAdded(...)
+    elseif event == "ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED" then
+        if not inFight then return end
+        OnTimelineStateChanged(...)
     elseif event == "UNIT_AURA" then
         if not inFight then return end
         OnUnitAura(...)
@@ -128,5 +137,6 @@ end)
 
 SLASH_LHVORASIUSTEST1 = "/lhvoratest"
 SlashCmdList["LHVORASIUSTEST"] = function()
-    ShowAlert("VOID BREATH — ÉVITEZ LE CÔNE !")
+    ShowAlert("SHADOWCLAW SLAM — ÉLOIGNEZ-VOUS !")
+    ShowPrivate("BLISTERBURST — +100% DÉGÂTS REÇUS (30s) !")
 end
