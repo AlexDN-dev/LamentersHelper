@@ -257,7 +257,7 @@ function M:CreateImperatorPanel()
 
     local soundInfo = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     soundInfo:SetPoint("TOPLEFT", alwaysShowCheck, "BOTTOMLEFT", 0, -28)
-    soundInfo:SetText("Sons utilises : soak.ogg et check_dispell.ogg")
+    soundInfo:SetText("Sons : SOUNDKIT built-in WoW (LibSharedMedia si disponible)")
 
     return frame
 end

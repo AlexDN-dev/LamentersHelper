@@ -5,104 +5,90 @@ local addonName, M = ...
 local ENCOUNTER_ID = 3179
 
 local SPELL = {
-    -- Casts du boss (SPELL_CAST_START) — fréquence gérable (~1 CPM chacun)
-    TWISTING_OBSCURITY      = 1250686,  -- AoE raid debuff (6 casts, 59% uptime raid)
-    SHATTERING_TWILIGHT     = 1253032,  -- 6 casts
-    FRACTURED_PROJECTION    = 1254081,  -- Invoque l'add Fractured Image (6 casts)
-    DESPOTIC_COMMAND_CAST   = 1260823,  -- Cible un joueur avec debuff (6 casts)
-    VOID_CONVERGENCE        = 1243453,  -- Mécanique ponctuelle (6 casts)
-    ENTROPIC_UNRAVELING     = 1246175,  -- Mécanique de phase (3 casts, rare)
-    UMBRAL_BEAMS            = 1260030,  -- AoE final (2 casts, fin de phase)
-
-    -- Debuffs sur joueurs (SPELL_AURA_APPLIED / SPELL_AURA_APPLIED_DOSE)
-    DESTABILIZING_STRIKES   = 1271579,  -- Debuff tank, 127 applications (91% uptime)
-    DESPOTIC_COMMAND_DEBUFF = 1248697,  -- Debuff ciblé sur un joueur (24 applications)
-    DARK_RADIATION          = 1250991,  -- DoT AoE raid (240 applications — trop fréquent pour alerter)
+    TWISTING_OBSCURITY      = 1250686,
+    SHATTERING_TWILIGHT     = 1253032,
+    FRACTURED_PROJECTION    = 1254081,
+    DESPOTIC_COMMAND_CAST   = 1260823,
+    VOID_CONVERGENCE        = 1243453,
+    ENTROPIC_UNRAVELING     = 1246175,
+    UMBRAL_BEAMS            = 1260030,
+    DESPOTIC_COMMAND_DEBUFF = 1248697,
+    DESTABILIZING_STRIKES   = 1271579,
 }
 
--- Seuils de stacks pour Destabilizing Strikes avant de crier au swap
 local DESTAB_ALERT_THRESHOLD = 5
 
 local inFight = false
+local destabStacks = 0
 local frame = CreateFrame("Frame")
 
-local function GetShortName(name)
-    if not name then return "" end
-    return string.match(name, "^[^-]+") or name
-end
-
-local function ShowAlert(msg)
+local function ShowAlert(msg, soundType)
     M:ShowText(msg)
+    if M.PlayAlertSound then M:PlayAlertSound(soundType or "global") end
     C_Timer.After(M.config and M.config.textDuration or 4, function()
         M:HideText()
     end)
 end
 
-local function OnCombatLogEvent()
-    if not inFight then return end
+local function ShowPrivate(msg)
+    M:ShowPrivateText(msg)
+    if M.PlayAlertSound then M:PlayAlertSound("private") end
+    C_Timer.After(M.config and M.config.privateTextDuration or 5, function()
+        M:HidePrivateText()
+    end)
+end
 
-    local _, subevent, _, _, _, _, _, destGUID, destName, _, _, spellID, _, _, _, amount =
-        CombatLogGetCurrentEventInfo()
+local function OnTimelineAdded(eventIndex)
+    local spellID = C_EncounterTimeline.GetEventInfo(eventIndex)
+    if not spellID then return end
 
-    -- === CASTS DU BOSS ===
-    if subevent == "SPELL_CAST_START" then
+    if spellID == SPELL.TWISTING_OBSCURITY then
+        ShowAlert("TWISTING OBSCURITY — SOINS RAID !")
+    elseif spellID == SPELL.SHATTERING_TWILIGHT then
+        ShowAlert("SHATTERING TWILIGHT — ATTENTION !")
+    elseif spellID == SPELL.FRACTURED_PROJECTION then
+        ShowAlert("FRACTURED IMAGE INVOQUÉ — FOCUS L'ADD !")
+    elseif spellID == SPELL.DESPOTIC_COMMAND_CAST then
+        ShowAlert("DESPOTIC COMMAND — UN JOUEUR CIBLÉ !", "soak")
+    elseif spellID == SPELL.VOID_CONVERGENCE then
+        ShowAlert("VOID CONVERGENCE !")
+    elseif spellID == SPELL.ENTROPIC_UNRAVELING then
+        ShowAlert("ENTROPIC UNRAVELING — MÉCANIQUE DE PHASE !", "phase")
+    elseif spellID == SPELL.UMBRAL_BEAMS then
+        ShowAlert("UMBRAL BEAMS — DÉPLACEZ-VOUS !", "phase")
+    end
+end
 
-        if spellID == SPELL.TWISTING_OBSCURITY then
-            ShowAlert("TWISTING OBSCURITY — SOINS RAID !")
+local function OnPrivateAuraApplied(auraInstanceID, spellID)
+    if spellID == SPELL.DESPOTIC_COMMAND_DEBUFF then
+        ShowPrivate("DESPOTIC COMMAND — BOUGEZ !")
+    end
+end
 
-        elseif spellID == SPELL.SHATTERING_TWILIGHT then
-            ShowAlert("SHATTERING TWILIGHT — ATTENTION !")
-
-        elseif spellID == SPELL.FRACTURED_PROJECTION then
-            ShowAlert("FRACTURED IMAGE INVOQUÉ — FOCUS L'ADD !")
-
-        elseif spellID == SPELL.DESPOTIC_COMMAND_CAST then
-            ShowAlert("DESPOTIC COMMAND — UN JOUEUR CIBLÉ !")
-
-        elseif spellID == SPELL.VOID_CONVERGENCE then
-            ShowAlert("VOID CONVERGENCE !")
-
-        elseif spellID == SPELL.ENTROPIC_UNRAVELING then
-            ShowAlert("ENTROPIC UNRAVELING — MÉCANIQUE DE PHASE !")
-
-        elseif spellID == SPELL.UMBRAL_BEAMS then
-            ShowAlert("UMBRAL BEAMS — DÉPLACEZ-VOUS !")
-        end
-
-    -- === DEBUFFS SUR JOUEURS ===
-    elseif subevent == "SPELL_AURA_APPLIED" then
-
-        -- Despotic Command : alerte personnelle au joueur ciblé
-        if spellID == SPELL.DESPOTIC_COMMAND_DEBUFF then
-            if destGUID == UnitGUID("player") then
-                M:ShowPrivateText("DESPOTIC COMMAND — BOUGEZ !")
-                C_Timer.After(M.config and M.config.privateTextDuration or 5, function()
-                    M:HidePrivateText()
-                end)
+local function OnUnitAura(unit)
+    if unit ~= "player" then return end
+    local aura = C_UnitAuras.GetAuraDataBySpellID("player", SPELL.DESTABILIZING_STRIKES, "HARMFUL")
+    if aura then
+        local stacks = aura.applications or 1
+        if stacks ~= destabStacks then
+            destabStacks = stacks
+            if stacks == 1 then
+                ShowPrivate("DESTABILIZING STRIKES ×1")
+            elseif stacks % DESTAB_ALERT_THRESHOLD == 0 then
+                ShowPrivate("DESTABILIZING STRIKES ×" .. stacks .. " — SWAP TANK !")
             end
         end
-
-        -- Destabilizing Strikes : premier stack sur un tank
-        if spellID == SPELL.DESTABILIZING_STRIKES then
-            ShowAlert("DESTABILIZING STRIKES ×1 — " .. GetShortName(destName))
-        end
-
-    elseif subevent == "SPELL_AURA_APPLIED_DOSE" then
-
-        -- Destabilizing Strikes : alerte aux seuils de stacks
-        if spellID == SPELL.DESTABILIZING_STRIKES then
-            local stacks = amount or 0
-            if stacks % DESTAB_ALERT_THRESHOLD == 0 then
-                ShowAlert("DESTABILIZING STRIKES ×" .. stacks .. " — " .. GetShortName(destName) .. " — SWAP TANK !")
-            end
-        end
+    else
+        destabStacks = 0
     end
 end
 
 frame:RegisterEvent("ENCOUNTER_START")
 frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
-frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
+frame:RegisterEvent("PRIVATE_AURA_APPLIED")
+frame:RegisterUnitEvent("UNIT_AURA", "player")
 
 frame:SetScript("OnEvent", function(_, event, ...)
     if event == "ENCOUNTER_START" then
@@ -112,8 +98,8 @@ frame:SetScript("OnEvent", function(_, event, ...)
         end
         if encounterID == ENCOUNTER_ID then
             inFight = true
+            destabStacks = 0
         end
-
     elseif event == "ENCOUNTER_END" then
         local encounterID, encounterName = ...
         if M.config and M.config.debugEncounter then
@@ -121,21 +107,27 @@ frame:SetScript("OnEvent", function(_, event, ...)
         end
         if encounterID == ENCOUNTER_ID then
             inFight = false
+            destabStacks = 0
             M:HideText()
             M:HidePrivateText()
         end
-
     elseif event == "PLAYER_ENTERING_WORLD" then
         inFight = false
-
-    elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
-        OnCombatLogEvent()
+        destabStacks = 0
+    elseif event == "ENCOUNTER_TIMELINE_EVENT_ADDED" then
+        if not inFight then return end
+        OnTimelineAdded(...)
+    elseif event == "PRIVATE_AURA_APPLIED" then
+        if not inFight then return end
+        OnPrivateAuraApplied(...)
+    elseif event == "UNIT_AURA" then
+        if not inFight then return end
+        OnUnitAura(...)
     end
 end)
 
 SLASH_LHSALHADAARTEST1 = "/lhsaltest"
-
 SlashCmdList["LHSALHADAARTEST"] = function()
     ShowAlert("TWISTING OBSCURITY — SOINS RAID !")
-    M:ShowPrivateText("DESPOTIC COMMAND — BOUGEZ !")
+    ShowPrivate("DESPOTIC COMMAND — BOUGEZ !")
 end

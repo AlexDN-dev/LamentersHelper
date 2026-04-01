@@ -3,15 +3,19 @@
 ## Notes: Private raid helper for Lamenters guild
 ## Author: Thiriall
 ## Version: 0.1
+## OptionalDeps: LibSharedMedia-3.0
 
 ## SavedVariables: LamentersHelperDB
 
 core.lua
 config.lua
 
+ui/frame.lua
+ui/text.lua
+ui/sound.lua
+
 modules/alerts.lua
 boss/imperator/grid.lua
-boss/imperator/voidmarked.lua
 boss/imperator/alerts.lua
 boss/vorasius/alerts.lua
 boss/salhadaar/alerts.lua
@@ -19,7 +23,5 @@ boss/drakes/alerts.lua
 boss/vanguard/alerts.lua
 boss/crown/alerts.lua
 
-ui/frame.lua
-ui/text.lua
 ui/mainpanel.lua
 ui/options.lua

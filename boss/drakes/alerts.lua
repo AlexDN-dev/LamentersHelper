@@ -1,103 +1,85 @@
 local addonName, M = ...
 
 -- Spell IDs — Vaelgor & Ezzorak, The Voidspire (Midnight 12.0)
--- Source : Wowhead (live 12.0.5) — mars 2026
--- ⚠️ ENCOUNTER_ID : estimation 3180, à vérifier via WarcraftLogs
+-- ⚠️ ENCOUNTER_ID : estimation 3178, à vérifier via debugEncounter = true au prochain pull
 local ENCOUNTER_ID = 3178
 
 local SPELL = {
-    -- Casts de Vaelgor (SPELL_CAST_START)
-    NULLBEAM                = 1262688,  -- Beam frontal sur le tank — tank doit soak ~8 stacks
-    DREAD_BREATH            = 1255595,  -- Cône frontal ciblant un joueur aléatoire (fear inclus)
-
-    -- Casts d'Ezzorak (SPELL_CAST_START)
-    VOID_HOWL               = 1245302,  -- Cercles sur tous les joueurs — groupez-vous pour les Voidorbs
-    GLOOM                   = 1245391,  -- Orbe qui crée une flaque en bord de zone — 5 joueurs soakent
-
-    -- Intermission (SPELL_CAST_START)
-    MIDNIGHT_FLAMES         = 1250071,  -- Les deux boss s'envolent — stackez dans le Radiant Barrier
-
-    -- Debuffs sur les joueurs (SPELL_AURA_APPLIED)
-    NULLZONE                = 1244672,  -- Lien sur chaque joueur après Nullbeam — rompre sauf tank en dernier
-    NULLZONE_IMPLOSION      = 1252157,  -- DoT raid quand le tank rompt son lien en dernier (6s)
-    TWILIGHT_BOND           = 1270189,  -- Buff boss si écart de PV >10% ou moins de 15y entre eux
-    DIMINISH                = 1270852,  -- Debuff 1min après soak Gloom — ne plus soak le prochain
+    NULLBEAM                = 1262688,
+    NULLZONE                = 1244672,
+    VOID_HOWL               = 1245302,
+    GLOOM                   = 1245391,
+    NULLZONE_IMPLOSION      = 1252157,
+    MIDNIGHT_FLAMES         = 1250071,
+    DREAD_BREATH            = 1255595,
+    DIMINISH                = 1270852,
+    TWILIGHT_BOND           = 1270189,
 }
 
 local inFight = false
+local trackedAuras = {}
 local frame = CreateFrame("Frame")
 
-local function GetShortName(name)
-    if not name then return "" end
-    return string.match(name, "^[^-]+") or name
-end
-
-local function ShowAlert(msg)
+local function ShowAlert(msg, soundType)
     M:ShowText(msg)
+    if M.PlayAlertSound then M:PlayAlertSound(soundType or "global") end
     C_Timer.After(M.config and M.config.textDuration or 4, function()
         M:HideText()
     end)
 end
 
-local function OnCombatLogEvent()
-    if not inFight then return end
+local function ShowPrivate(msg)
+    M:ShowPrivateText(msg)
+    if M.PlayAlertSound then M:PlayAlertSound("private") end
+    C_Timer.After(M.config and M.config.privateTextDuration or 5, function()
+        M:HidePrivateText()
+    end)
+end
 
-    local _, subevent, _, _, _, _, _, destGUID, destName, _, _, spellID =
-        CombatLogGetCurrentEventInfo()
+local function OnTimelineAdded(eventIndex)
+    local spellID = C_EncounterTimeline.GetEventInfo(eventIndex)
+    if not spellID then return end
 
-    -- === CASTS DU BOSS (avec cast time) ===
-    if subevent == "SPELL_CAST_START" then
+    if spellID == SPELL.NULLBEAM then
+        ShowAlert("NULLBEAM — TANK SOAK !", "soak")
+    elseif spellID == SPELL.NULLZONE then
+        ShowAlert("NULLZONE — ROMPEZ LES LIENS !", "soak")
+    elseif spellID == SPELL.VOID_HOWL then
+        ShowAlert("VOID HOWL — GROUPEZ-VOUS !")
+    elseif spellID == SPELL.GLOOM then
+        ShowAlert("GLOOM — ÉQUIPE SOAK EN POSITION !", "soak")
+    elseif spellID == SPELL.NULLZONE_IMPLOSION then
+        ShowAlert("NULLZONE IMPLOSION — SOINS RAID !")
+    elseif spellID == SPELL.MIDNIGHT_FLAMES then
+        ShowAlert("INTERMISSION — STACK DANS LE BARRIER !", "phase")
+    end
+end
 
-        if spellID == SPELL.NULLBEAM then
-            ShowAlert("NULLBEAM — TANK SOAK !")
+local function OnPrivateAuraApplied(auraInstanceID, spellID)
+    if spellID == SPELL.DREAD_BREATH then
+        ShowPrivate("DREAD BREATH — SORTEZ SUR LE CÔTÉ !")
+    elseif spellID == SPELL.DIMINISH then
+        ShowPrivate("DIMINISH — NE SOAKEZ PLUS GLOOM !")
+    end
+end
 
-        elseif spellID == SPELL.VOID_HOWL then
-            ShowAlert("VOID HOWL — GROUPEZ-VOUS !")
-
-        elseif spellID == SPELL.GLOOM then
-            ShowAlert("GLOOM — ÉQUIPE SOAK EN POSITION !")
-
-        elseif spellID == SPELL.MIDNIGHT_FLAMES then
-            ShowAlert("INTERMISSION — STACK DANS LE BARRIER !")
-        end
-
-    -- === DEBUFFS SUR JOUEURS ===
-    elseif subevent == "SPELL_AURA_APPLIED" then
-
-        if spellID == SPELL.NULLZONE then
-            ShowAlert("NULLZONE — ROMPEZ LES LIENS !")
-
-        elseif spellID == SPELL.NULLZONE_IMPLOSION then
-            ShowAlert("NULLZONE IMPLOSION — SOINS RAID !")
-
-        elseif spellID == SPELL.TWILIGHT_BOND then
-            ShowAlert("TWILIGHT BOND — ÉQUILIBREZ LES PV !")
-
-        -- Dread Breath : alerte privée uniquement pour le joueur ciblé
-        elseif spellID == SPELL.DREAD_BREATH then
-            if destGUID == UnitGUID("player") then
-                M:ShowPrivateText("DREAD BREATH — SORTEZ SUR LE CÔTÉ !")
-                C_Timer.After(M.config and M.config.privateTextDuration or 5, function()
-                    M:HidePrivateText()
-                end)
-            end
-
-        -- Diminish : alerte privée au joueur qui vient de soak Gloom
-        elseif spellID == SPELL.DIMINISH then
-            if destGUID == UnitGUID("player") then
-                M:ShowPrivateText("DIMINISH — NE SOAKEZ PLUS GLOOM !")
-                C_Timer.After(M.config and M.config.privateTextDuration or 5, function()
-                    M:HidePrivateText()
-                end)
-            end
-        end
+local function OnUnitAura(unit)
+    local bond = C_UnitAuras.GetAuraDataBySpellID(unit, SPELL.TWILIGHT_BOND, "HELPFUL")
+    local key = unit .. "_bond"
+    if bond and not trackedAuras[key] then
+        trackedAuras[key] = true
+        ShowAlert("TWILIGHT BOND — ÉQUILIBREZ LES PV !", "phase")
+    elseif not bond then
+        trackedAuras[key] = nil
     end
 end
 
 frame:RegisterEvent("ENCOUNTER_START")
 frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
-frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
+frame:RegisterEvent("PRIVATE_AURA_APPLIED")
+frame:RegisterUnitEvent("UNIT_AURA", "boss1", "boss2")
 
 frame:SetScript("OnEvent", function(_, event, ...)
     if event == "ENCOUNTER_START" then
@@ -107,8 +89,8 @@ frame:SetScript("OnEvent", function(_, event, ...)
         end
         if encounterID == ENCOUNTER_ID then
             inFight = true
+            trackedAuras = {}
         end
-
     elseif event == "ENCOUNTER_END" then
         local encounterID, encounterName = ...
         if M.config and M.config.debugEncounter then
@@ -116,21 +98,27 @@ frame:SetScript("OnEvent", function(_, event, ...)
         end
         if encounterID == ENCOUNTER_ID then
             inFight = false
+            trackedAuras = {}
             M:HideText()
             M:HidePrivateText()
         end
-
     elseif event == "PLAYER_ENTERING_WORLD" then
         inFight = false
-
-    elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
-        OnCombatLogEvent()
+        trackedAuras = {}
+    elseif event == "ENCOUNTER_TIMELINE_EVENT_ADDED" then
+        if not inFight then return end
+        OnTimelineAdded(...)
+    elseif event == "PRIVATE_AURA_APPLIED" then
+        if not inFight then return end
+        OnPrivateAuraApplied(...)
+    elseif event == "UNIT_AURA" then
+        if not inFight then return end
+        OnUnitAura(...)
     end
 end)
 
 SLASH_LHDRAKESTEST1 = "/lhdrakestest"
-
 SlashCmdList["LHDRAKESTEST"] = function()
-    ShowAlert("GLOOM — ÉQUIPE SOAK EN POSITION !")
-    M:ShowPrivateText("DREAD BREATH — SORTEZ SUR LE CÔTÉ !")
+    ShowAlert("GLOOM — ÉQUIPE SOAK EN POSITION !", "soak")
+    ShowPrivate("DREAD BREATH — SORTEZ SUR LE CÔTÉ !")
 end
