@@ -16,7 +16,9 @@ local SPELL = {
     AURA_OF_PEACE             = 1250812,
     ELEKK_CHARGE              = 1249130,
     TYRS_WRATH                = 1248710,
-    EXECUTION_SENTENCE_DEBUFF = 1248983,
+    -- private aura IDs for Execution Sentence targeted (BigWigs: 1248985, 1248994)
+    EXECUTION_SENTENCE_PRIV1  = 1248985,
+    EXECUTION_SENTENCE_PRIV2  = 1248994,
     RETRIBUTION               = 1246174,
 }
 
@@ -40,8 +42,9 @@ local function ShowPrivate(msg)
     end)
 end
 
-local function OnTimelineAdded(eventIndex)
-    local spellID = C_EncounterTimeline.GetEventInfo(eventIndex)
+local function OnTimelineAdded(eventInfo)
+    if not eventInfo then return end
+    local spellID = eventInfo.spellID
     if not spellID then return end
 
     -- Commander Venel
@@ -70,9 +73,12 @@ local function OnTimelineAdded(eventIndex)
     end
 end
 
-local function OnTimelineStateChanged(eventIndex, newState)
-    if newState ~= Enum.EncounterEventState.Finished then return end
-    local spellID = C_EncounterTimeline.GetEventInfo(eventIndex)
+local function OnTimelineStateChanged(eventID)
+    local state = C_EncounterTimeline.GetEventState(eventID)
+    if state ~= 2 then return end -- 2 = Finished
+    local info = C_EncounterTimeline.GetEventInfo(eventID)
+    if not info then return end
+    local spellID = info.spellID
     if not spellID then return end
 
     if spellID == SPELL.ELEKK_CHARGE then
@@ -80,13 +86,19 @@ local function OnTimelineStateChanged(eventIndex, newState)
     end
 end
 
-local function OnPrivateAuraApplied(auraInstanceID, spellID)
-    if spellID == SPELL.EXECUTION_SENTENCE_DEBUFF then
-        ShowPrivate("EXECUTION SENTENCE — NE SUPERPOSEZ PAS !")
-    end
-end
-
 local function OnUnitAura(unit)
+    if unit == "player" then
+        local exec = C_UnitAuras.GetPlayerAuraBySpellID(SPELL.EXECUTION_SENTENCE_PRIV1)
+                  or C_UnitAuras.GetPlayerAuraBySpellID(SPELL.EXECUTION_SENTENCE_PRIV2)
+        if exec and not trackedAuras.exec then
+            trackedAuras.exec = true
+            ShowPrivate("EXECUTION SENTENCE — NE SUPERPOSEZ PAS !")
+        elseif not exec then
+            trackedAuras.exec = nil
+        end
+        return
+    end
+
     local retri = C_UnitAuras.GetAuraDataBySpellID(unit, SPELL.RETRIBUTION, "HELPFUL")
     local key = unit .. "_retri"
     if retri and not trackedAuras[key] then
@@ -102,8 +114,7 @@ frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED")
-frame:RegisterEvent("PRIVATE_AURA_APPLIED")
-frame:RegisterUnitEvent("UNIT_AURA", "boss1", "boss2", "boss3")
+frame:RegisterUnitEvent("UNIT_AURA", "boss1", "boss2", "boss3", "player")
 
 frame:SetScript("OnEvent", function(_, event, ...)
     if event == "ENCOUNTER_START" then
@@ -135,9 +146,6 @@ frame:SetScript("OnEvent", function(_, event, ...)
     elseif event == "ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED" then
         if not inFight then return end
         OnTimelineStateChanged(...)
-    elseif event == "PRIVATE_AURA_APPLIED" then
-        if not inFight then return end
-        OnPrivateAuraApplied(...)
     elseif event == "UNIT_AURA" then
         if not inFight then return end
         OnUnitAura(...)

@@ -9,6 +9,7 @@ local SPELL = {
     VOID_RUPTURE            = 1262036,
     PITCH_BULWARK           = 1255702,
     UMBRAL_COLLAPSE         = 1249262,
+    UMBRAL_COLLAPSE_PRIVATE = 1249265, -- private aura spell ID (from BigWigs)
     VOID_FALL               = 1258883,
     IMPERATORS_GLORY        = 1253918,
 }
@@ -33,8 +34,9 @@ local function ShowPrivate(msg)
     end)
 end
 
-local function OnTimelineAdded(eventIndex)
-    local spellID = C_EncounterTimeline.GetEventInfo(eventIndex)
+local function OnTimelineAdded(eventInfo)
+    if not eventInfo then return end
+    local spellID = eventInfo.spellID
     if not spellID then return end
 
     if spellID == SPELL.SHADOWS_ADVANCE then
@@ -50,9 +52,12 @@ local function OnTimelineAdded(eventIndex)
     end
 end
 
-local function OnTimelineStateChanged(eventIndex, newState)
-    if newState ~= Enum.EncounterEventState.Finished then return end
-    local spellID = C_EncounterTimeline.GetEventInfo(eventIndex)
+local function OnTimelineStateChanged(eventID)
+    local state = C_EncounterTimeline.GetEventState(eventID)
+    if state ~= 2 then return end -- 2 = Finished
+    local info = C_EncounterTimeline.GetEventInfo(eventID)
+    if not info then return end
+    local spellID = info.spellID
     if not spellID then return end
 
     if spellID == SPELL.VOID_FALL then
@@ -60,13 +65,18 @@ local function OnTimelineStateChanged(eventIndex, newState)
     end
 end
 
-local function OnPrivateAuraApplied(auraInstanceID, spellID)
-    if spellID == SPELL.UMBRAL_COLLAPSE then
-        ShowPrivate("UMBRAL COLLAPSE — ALLEZ AU MARQUEUR !")
-    end
-end
-
 local function OnUnitAura(unit)
+    if unit == "player" then
+        local umbral = C_UnitAuras.GetPlayerAuraBySpellID(SPELL.UMBRAL_COLLAPSE_PRIVATE)
+        if umbral and not trackedAuras.umbral then
+            trackedAuras.umbral = true
+            ShowPrivate("UMBRAL COLLAPSE — ALLEZ AU MARQUEUR !")
+        elseif not umbral then
+            trackedAuras.umbral = nil
+        end
+        return
+    end
+
     local glory = C_UnitAuras.GetAuraDataBySpellID(unit, SPELL.IMPERATORS_GLORY, "HELPFUL")
     if glory and not trackedAuras.glory then
         trackedAuras.glory = true
@@ -81,8 +91,7 @@ frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED")
-frame:RegisterEvent("PRIVATE_AURA_APPLIED")
-frame:RegisterUnitEvent("UNIT_AURA", "boss1")
+frame:RegisterUnitEvent("UNIT_AURA", "boss1", "player")
 
 frame:SetScript("OnEvent", function(_, event, ...)
     if event == "ENCOUNTER_START" then
@@ -114,9 +123,6 @@ frame:SetScript("OnEvent", function(_, event, ...)
     elseif event == "ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED" then
         if not inFight then return end
         OnTimelineStateChanged(...)
-    elseif event == "PRIVATE_AURA_APPLIED" then
-        if not inFight then return end
-        OnPrivateAuraApplied(...)
     elseif event == "UNIT_AURA" then
         if not inFight then return end
         OnUnitAura(...)

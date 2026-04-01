@@ -145,3 +145,26 @@ SLASH_LHCHECK1 = "/lhcheck"
 SlashCmdList["LHCHECK"] = function()
     M:SendAddonCheck()
 end
+
+SLASH_LHSOUND1 = "/lhsound"
+
+SlashCmdList["LHSOUND"] = function()
+    if not M.PlayAlertSound then
+        print("|cffff0000LH Sound: M:PlayAlertSound non défini !|r")
+        return
+    end
+    print("|cff00ff00LH Sound: test global|r")
+    M:PlayAlertSound("global")
+    C_Timer.After(0.8, function()
+        print("|cff00ff00LH Sound: test phase|r")
+        M:PlayAlertSound("phase")
+    end)
+    C_Timer.After(1.6, function()
+        print("|cff00ff00LH Sound: test interrupt|r")
+        M:PlayAlertSound("interrupt")
+    end)
+    C_Timer.After(2.4, function()
+        print("|cff00ff00LH Sound: test private|r")
+        M:PlayAlertSound("private")
+    end)
+end

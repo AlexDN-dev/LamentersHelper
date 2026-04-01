@@ -66,7 +66,7 @@ local function ShowChannel(channel, msg)
     channel.displayText:SetText(msg)
     channel.displayFrame:SetAlpha(0)
     channel.displayFrame:Show()
-    UIFrameFadeIn(channel.displayFrame, 0.5, 0, 1)
+    UIFrameFadeIn(channel.displayFrame, 0.05, 0, 1)
 
     if channel.displayFrame.timer then
         channel.displayFrame.timer:Cancel()
@@ -162,8 +162,8 @@ local function CreateTextChannel(channel)
 end
 
 local globalChannel = {
-    width = 300,
-    height = 100,
+    width = 950,
+    height = 160,
     posXKey = "posX",
     posYKey = "posY",
     sizeKey = "textSize",
@@ -173,8 +173,8 @@ local globalChannel = {
 }
 
 local privateChannel = {
-    width = 320,
-    height = 80,
+    width = 750,
+    height = 120,
     posXKey = "privatePosX",
     posYKey = "privatePosY",
     sizeKey = "privateTextSize",

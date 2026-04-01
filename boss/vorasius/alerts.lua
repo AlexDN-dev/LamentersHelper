@@ -11,7 +11,7 @@ local SPELL = {
     PARASITE_EXPULSION      = 1254199,
     OVERPOWERING_PULSE      = 1244419,
     FOCUSED_AGGRESSION      = 1258967,
-    BLISTERBURST            = 1259186,
+    BLISTERBURST            = 1259186, -- private aura (BigWigs confirms same ID)
     SMASHED                 = 1241844,
 }
 
@@ -19,6 +19,7 @@ local SMASHED_ALERT_THRESHOLD = 3
 
 local inFight = false
 local smashedStacks = 0
+local blistered = false
 local frame = CreateFrame("Frame")
 
 local function ShowAlert(msg, soundType)
@@ -37,8 +38,9 @@ local function ShowPrivate(msg)
     end)
 end
 
-local function OnTimelineAdded(eventIndex)
-    local spellID = C_EncounterTimeline.GetEventInfo(eventIndex)
+local function OnTimelineAdded(eventInfo)
+    if not eventInfo then return end
+    local spellID = eventInfo.spellID
     if not spellID then return end
 
     if spellID == SPELL.VOID_BREATH_CAST then
@@ -56,25 +58,29 @@ local function OnTimelineAdded(eventIndex)
     end
 end
 
-local function OnPrivateAuraApplied(auraInstanceID, spellID)
-    if spellID == SPELL.BLISTERBURST then
-        ShowPrivate("BLISTERBURST — +100% DÉGÂTS REÇUS (30s) !")
-    end
-end
-
 local function OnUnitAura(unit)
-    if unit ~= "player" then return end
-    local aura = C_UnitAuras.GetAuraDataBySpellID("player", SPELL.SMASHED, "HARMFUL")
-    if aura then
-        local stacks = aura.applications or 1
-        if stacks ~= smashedStacks then
-            smashedStacks = stacks
-            if stacks == 1 or stacks % SMASHED_ALERT_THRESHOLD == 0 then
-                ShowPrivate("SMASHED ×" .. stacks .. " — SWAP TANK !")
-            end
+    if unit == "player" then
+        local blister = C_UnitAuras.GetPlayerAuraBySpellID(SPELL.BLISTERBURST)
+        if blister and not blistered then
+            blistered = true
+            ShowPrivate("BLISTERBURST — +100% DÉGÂTS REÇUS (30s) !")
+        elseif not blister then
+            blistered = false
         end
-    else
-        smashedStacks = 0
+
+        local aura = C_UnitAuras.GetAuraDataBySpellID("player", SPELL.SMASHED, "HARMFUL")
+        if aura then
+            local stacks = aura.applications or 1
+            if stacks ~= smashedStacks then
+                smashedStacks = stacks
+                if stacks == 1 or stacks % SMASHED_ALERT_THRESHOLD == 0 then
+                    ShowPrivate("SMASHED ×" .. stacks .. " — SWAP TANK !")
+                end
+            end
+        else
+            smashedStacks = 0
+        end
+        return
     end
 end
 
@@ -82,7 +88,6 @@ frame:RegisterEvent("ENCOUNTER_START")
 frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
-frame:RegisterEvent("PRIVATE_AURA_APPLIED")
 frame:RegisterUnitEvent("UNIT_AURA", "player")
 
 frame:SetScript("OnEvent", function(_, event, ...)
@@ -94,6 +99,7 @@ frame:SetScript("OnEvent", function(_, event, ...)
         if encounterID == ENCOUNTER_ID then
             inFight = true
             smashedStacks = 0
+            blistered = false
         end
     elseif event == "ENCOUNTER_END" then
         local encounterID, encounterName = ...
@@ -103,18 +109,17 @@ frame:SetScript("OnEvent", function(_, event, ...)
         if encounterID == ENCOUNTER_ID then
             inFight = false
             smashedStacks = 0
+            blistered = false
             M:HideText()
             M:HidePrivateText()
         end
     elseif event == "PLAYER_ENTERING_WORLD" then
         inFight = false
         smashedStacks = 0
+        blistered = false
     elseif event == "ENCOUNTER_TIMELINE_EVENT_ADDED" then
         if not inFight then return end
         OnTimelineAdded(...)
-    elseif event == "PRIVATE_AURA_APPLIED" then
-        if not inFight then return end
-        OnPrivateAuraApplied(...)
     elseif event == "UNIT_AURA" then
         if not inFight then return end
         OnUnitAura(...)

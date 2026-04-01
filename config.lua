@@ -1,11 +1,11 @@
 local addonName, M = ...
 
 local defaults = {
-    textSize = 20,
+    textSize = 28,
     posX = 0,
     posY = 0,
     textDuration = 4,
-    privateTextSize = 16,
+    privateTextSize = 22,
     privatePosX = 0,
     privatePosY = -90,
     privateTextDuration = 5,

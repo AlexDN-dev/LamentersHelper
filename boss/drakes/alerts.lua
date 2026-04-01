@@ -11,7 +11,7 @@ local SPELL = {
     GLOOM                   = 1245391,
     NULLZONE_IMPLOSION      = 1252157,
     MIDNIGHT_FLAMES         = 1250071,
-    DREAD_BREATH            = 1255595,
+    DREAD_BREATH            = 1255612, -- private aura ID (BigWigs: 1255612, not 1255595)
     DIMINISH                = 1270852,
     TWILIGHT_BOND           = 1270189,
 }
@@ -36,8 +36,9 @@ local function ShowPrivate(msg)
     end)
 end
 
-local function OnTimelineAdded(eventIndex)
-    local spellID = C_EncounterTimeline.GetEventInfo(eventIndex)
+local function OnTimelineAdded(eventInfo)
+    if not eventInfo then return end
+    local spellID = eventInfo.spellID
     if not spellID then return end
 
     if spellID == SPELL.NULLBEAM then
@@ -55,15 +56,26 @@ local function OnTimelineAdded(eventIndex)
     end
 end
 
-local function OnPrivateAuraApplied(auraInstanceID, spellID)
-    if spellID == SPELL.DREAD_BREATH then
-        ShowPrivate("DREAD BREATH — SORTEZ SUR LE CÔTÉ !")
-    elseif spellID == SPELL.DIMINISH then
-        ShowPrivate("DIMINISH — NE SOAKEZ PLUS GLOOM !")
-    end
-end
-
 local function OnUnitAura(unit)
+    if unit == "player" then
+        local breath = C_UnitAuras.GetPlayerAuraBySpellID(SPELL.DREAD_BREATH)
+        if breath and not trackedAuras.breath then
+            trackedAuras.breath = true
+            ShowPrivate("DREAD BREATH — SORTEZ SUR LE CÔTÉ !")
+        elseif not breath then
+            trackedAuras.breath = nil
+        end
+
+        local diminish = C_UnitAuras.GetPlayerAuraBySpellID(SPELL.DIMINISH)
+        if diminish and not trackedAuras.diminish then
+            trackedAuras.diminish = true
+            ShowPrivate("DIMINISH — NE SOAKEZ PLUS GLOOM !")
+        elseif not diminish then
+            trackedAuras.diminish = nil
+        end
+        return
+    end
+
     local bond = C_UnitAuras.GetAuraDataBySpellID(unit, SPELL.TWILIGHT_BOND, "HELPFUL")
     local key = unit .. "_bond"
     if bond and not trackedAuras[key] then
@@ -78,8 +90,7 @@ frame:RegisterEvent("ENCOUNTER_START")
 frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
-frame:RegisterEvent("PRIVATE_AURA_APPLIED")
-frame:RegisterUnitEvent("UNIT_AURA", "boss1", "boss2")
+frame:RegisterUnitEvent("UNIT_AURA", "boss1", "boss2", "player")
 
 frame:SetScript("OnEvent", function(_, event, ...)
     if event == "ENCOUNTER_START" then
@@ -108,9 +119,6 @@ frame:SetScript("OnEvent", function(_, event, ...)
     elseif event == "ENCOUNTER_TIMELINE_EVENT_ADDED" then
         if not inFight then return end
         OnTimelineAdded(...)
-    elseif event == "PRIVATE_AURA_APPLIED" then
-        if not inFight then return end
-        OnPrivateAuraApplied(...)
     elseif event == "UNIT_AURA" then
         if not inFight then return end
         OnUnitAura(...)

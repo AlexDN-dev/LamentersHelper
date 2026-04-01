@@ -13,14 +13,17 @@ local SPELL = {
     COSMIC_BARRIER          = 1246918,
     ASPECT_OF_THE_END       = 1239080,
     DEVOURING_COSMOS        = 1238843,
+    -- private aura IDs (from BigWigs TheVoidspire/Crown.lua)
     SILVERSTRIKE_ARROW      = 1233602,
     GRASP_OF_EMPTINESS      = 1232470,
     NULL_CORONA             = 1233865,
-    RANGERS_CAPTAINS_MARK   = 1237614,
-    VOIDSTALKER_STING       = 1237040,
+    RANGERS_CAPTAINS_MARK   = 1237623, -- BigWigs: 1237623 (LH had 1237614)
+    VOIDSTALKER_STING       = 1237038, -- BigWigs: 1237038 (LH had 1237040)
+    ASPECT_OF_END_PRIV      = 1239111, -- BigWigs: 1239111 (LH had 1239080)
 }
 
 local inFight = false
+local trackedAuras = {}
 local frame = CreateFrame("Frame")
 
 local function ShowAlert(msg, soundType)
@@ -39,8 +42,9 @@ local function ShowPrivate(msg)
     end)
 end
 
-local function OnTimelineAdded(eventIndex)
-    local spellID = C_EncounterTimeline.GetEventInfo(eventIndex)
+local function OnTimelineAdded(eventInfo)
+    if not eventInfo then return end
+    local spellID = eventInfo.spellID
     if not spellID then return end
 
     if spellID == SPELL.VOID_EXPULSION then
@@ -64,27 +68,32 @@ local function OnTimelineAdded(eventIndex)
     end
 end
 
-local function OnPrivateAuraApplied(auraInstanceID, spellID)
-    if spellID == SPELL.SILVERSTRIKE_ARROW then
-        ShowPrivate("SILVERSTRIKE ARROW — VISE UN SENTINEL !")
-    elseif spellID == SPELL.GRASP_OF_EMPTINESS then
-        ShowPrivate("GRASP OF EMPTINESS — ORIENTEZ L'OBÉLISQUE !")
-    elseif spellID == SPELL.NULL_CORONA then
-        ShowPrivate("NULL CORONA — SOIN À FOND / DISPEL SI CRITIQUE !")
-    elseif spellID == SPELL.RANGERS_CAPTAINS_MARK then
-        ShowPrivate("RANGER CAPTAIN'S MARK — VISE UN VOIDSPAWN !")
-    elseif spellID == SPELL.VOIDSTALKER_STING then
-        ShowPrivate("VOIDSTALKER STING — DOT SUR TOI (25s) !")
-    elseif spellID == SPELL.ASPECT_OF_THE_END then
-        ShowPrivate("ASPECT OF THE END — RESTEZ EN PLACE !")
+local function OnUnitAura(unit)
+    if unit ~= "player" then return end
+
+    local function checkPrivate(spellID, key, msg)
+        local aura = C_UnitAuras.GetPlayerAuraBySpellID(spellID)
+        if aura and not trackedAuras[key] then
+            trackedAuras[key] = true
+            ShowPrivate(msg)
+        elseif not aura then
+            trackedAuras[key] = nil
+        end
     end
+
+    checkPrivate(SPELL.SILVERSTRIKE_ARROW,    "arrow",   "SILVERSTRIKE ARROW — VISE UN SENTINEL !")
+    checkPrivate(SPELL.GRASP_OF_EMPTINESS,    "grasp",   "GRASP OF EMPTINESS — ORIENTEZ L'OBÉLISQUE !")
+    checkPrivate(SPELL.NULL_CORONA,           "corona",  "NULL CORONA — SOIN À FOND / DISPEL SI CRITIQUE !")
+    checkPrivate(SPELL.RANGERS_CAPTAINS_MARK, "mark",    "RANGER CAPTAIN'S MARK — VISE UN VOIDSPAWN !")
+    checkPrivate(SPELL.VOIDSTALKER_STING,     "sting",   "VOIDSTALKER STING — DOT SUR TOI (25s) !")
+    checkPrivate(SPELL.ASPECT_OF_END_PRIV,    "aspect",  "ASPECT OF THE END — RESTEZ EN PLACE !")
 end
 
 frame:RegisterEvent("ENCOUNTER_START")
 frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
-frame:RegisterEvent("PRIVATE_AURA_APPLIED")
+frame:RegisterUnitEvent("UNIT_AURA", "player")
 
 frame:SetScript("OnEvent", function(_, event, ...)
     if event == "ENCOUNTER_START" then
@@ -94,6 +103,7 @@ frame:SetScript("OnEvent", function(_, event, ...)
         end
         if encounterID == ENCOUNTER_ID then
             inFight = true
+            trackedAuras = {}
         end
     elseif event == "ENCOUNTER_END" then
         local encounterID, encounterName = ...
@@ -102,17 +112,19 @@ frame:SetScript("OnEvent", function(_, event, ...)
         end
         if encounterID == ENCOUNTER_ID then
             inFight = false
+            trackedAuras = {}
             M:HideText()
             M:HidePrivateText()
         end
     elseif event == "PLAYER_ENTERING_WORLD" then
         inFight = false
+        trackedAuras = {}
     elseif event == "ENCOUNTER_TIMELINE_EVENT_ADDED" then
         if not inFight then return end
         OnTimelineAdded(...)
-    elseif event == "PRIVATE_AURA_APPLIED" then
+    elseif event == "UNIT_AURA" then
         if not inFight then return end
-        OnPrivateAuraApplied(...)
+        OnUnitAura(...)
     end
 end)
 
