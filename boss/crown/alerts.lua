@@ -58,7 +58,7 @@ local function OnTimelineAdded(eventIndex)
     elseif spellID == SPELL.COSMIC_BARRIER then
         ShowAlert("COSMIC BARRIER — BURST LE SIMULACRUM !", "soak")
     elseif spellID == SPELL.ASPECT_OF_THE_END then
-        ShowAlert("ASPECT OF THE END — RANGED > MÊLÉE > TANK !", "phase")
+        ShowAlert("ASPECT OF THE END — MÊLÉE > RANGED > TANK !", "phase")
     elseif spellID == SPELL.DEVOURING_COSMOS then
         ShowAlert("DEVOURING COSMOS — PRENEZ LES PLUMES !", "phase")
     end
