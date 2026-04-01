@@ -18,7 +18,7 @@ local CreatesLine, ResetGrid
 local icons = {
     1, 2, 3,
     4, 0, 6,
-    7, 8, 1,
+    7, 8, 5,
 }
 
 -- Textures précalculées au chargement (icônes 1–8, atlas 4x2 de 64px dans 256px)
@@ -159,10 +159,16 @@ gridFrame:SetScript("OnDragStop", function(self)
     if M.SaveConfig then M:SaveConfig() end
 end)
 
+local function IsGridAllowed()
+    return ROLE == "rl" or UnitGroupRolesAssigned("player") == "TANK"
+end
+
 function M:RefreshGridVisibility()
-    local shouldShow = self.anchorMode
+    local shouldShow = IsGridAllowed() and (
+        self.anchorMode
         or (self.config and self.config.alwaysShowGrid)
         or (activeEncounterID and activeEncounterID == GetTrackedEncounterID())
+    )
     if shouldShow then
         gridFrame:Show()
     else
@@ -334,4 +340,63 @@ if M.RefreshGridVisibility then
     M:RefreshGridVisibility()
 else
     gridFrame:Hide()
+end
+
+-- Simule une sélection RL et la broadcast au raid/party
+local function SimulateGridSelection(list)
+    ResetGrid()
+    gridFrame:Show()
+
+    local bestChoice = ChooseBestSkip(list)
+
+    for _, idx in ipairs(list) do
+        selected[idx] = true
+        selectedCount = selectedCount + 1
+        if idx == bestChoice then
+            buttons[idx]:SetBackdropColor(1, 0, 0, 1)
+            blocked[idx] = true
+        else
+            buttons[idx]:SetBackdropColor(0, 1, 0, 1)
+        end
+    end
+    locked = true
+
+    local message = BuildSoakMessage(list, bestChoice)
+    if message and M.ShowText then
+        M:ShowText(message)
+    end
+    if M.PlayAlertSound then
+        M:PlayAlertSound("soak")
+    end
+
+    -- Broadcast : raid en priorité, party en fallback, sinon local uniquement
+    local channel = IsInRaid() and "RAID" or (IsInGroup() and "PARTY" or nil)
+    local msgData = table.concat(list, ",") .. "|" .. bestChoice
+    if channel then
+        C_ChatInfo.SendAddonMessage("LH_GRID", msgData, channel)
+        print(string.format("|cff00ff00LH Grid Test|r Envoi %s — cases [%s] skip=%d", channel, table.concat(list, ","), bestChoice))
+    else
+        print(string.format("|cffff9900LH Grid Test|r Hors groupe — affichage local seulement — cases [%s] skip=%d", table.concat(list, ","), bestChoice))
+    end
+
+    -- Auto-reset après 15 secondes
+    resetTimer = C_Timer.NewTimer(15, function()
+        ResetGrid()
+        if not (M.config and M.config.alwaysShowGrid) then
+            gridFrame:Hide()
+        end
+    end)
+end
+
+SLASH_LHGRIDTEST1 = "/lhgridtest"
+SlashCmdList["LHGRIDTEST"] = function(args)
+    -- /lhgridtest          → test par défaut : cases 2, 5, 8 (colonne du milieu)
+    -- /lhgridtest 1 5 9    → test avec cases personnalisées
+    local a, b, c = args:match("(%d+)%s+(%d+)%s+(%d+)")
+    if a and b and c then
+        local list = {tonumber(a), tonumber(b), tonumber(c)}
+        SimulateGridSelection(list)
+    else
+        SimulateGridSelection({2, 5, 8})
+    end
 end
