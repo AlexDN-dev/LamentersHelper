@@ -242,7 +242,10 @@ for row = 1, 3 do
                     M:PlayAlertSound("soak")
                 end
 
-                C_ChatInfo.SendAddonMessage("LH_GRID", table.concat(list, ",") .. "|" .. bestChoice, "RAID")
+                local channel = IsInRaid() and "RAID" or (IsInGroup() and "PARTY" or nil)
+                if channel then
+                    C_ChatInfo.SendAddonMessage("LH_GRID", table.concat(list, ",") .. "|" .. bestChoice, channel)
+                end
 
                 resetTimer = C_Timer.NewTimer(10, function()
                     for i, b in ipairs(buttons) do
@@ -312,6 +315,19 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
             end
         end
 
+        -- Reset timer viewer : remet à gris les cases non-bloquées après 10s (identique au RL)
+        if resetTimer then resetTimer:Cancel() end
+        resetTimer = C_Timer.NewTimer(10, function()
+            for i, b in ipairs(buttons) do
+                if not blocked[i] then
+                    b:SetBackdropColor(0.5, 0.5, 0.5, 1)
+                end
+            end
+            selected = {}
+            selectedCount = 0
+            locked = false
+        end)
+
         local message = BuildSoakMessage(list, red)
         if message and M.ShowText then
             M:ShowText(message)
@@ -321,6 +337,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         local encounterID, encounterName = ...
         activeEncounterID = encounterID
         PrintEncounterDebug(encounterID, encounterName, "START")
+        ResetGrid()
         if M.RefreshGridVisibility then M:RefreshGridVisibility() end
 
     elseif event == "ENCOUNTER_END" then

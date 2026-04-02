@@ -25,10 +25,13 @@ end
 
 -- Durées BigWigs Vanguard — Héroïque (TimersHeroic) + Mythique (TimersMythic) :
 --   10       → Sacred Toll (Héroïque pull ; Mythique: 20)
+--   15       → Avenger's Shield (Héroïque) — alerte tank, pas de message raid
 --   17       → Sacred Shield (toutes difficultés)
---   18       → Divine Storm (Héroïque)
+--   18       → Divine Storm (Héroïque ; Mythique: 15/123)
 --   23       → Sacred Toll (Normal pull)
---   30       → Judgement Red (Héroïque pull)
+--   26       → Judgement Blue (Héroïque/Normal) / Aura of Devotion (Mythique)
+--   29       → Divine Toll (Mythique)
+--   30       → Judgement Red (Héroïque/Normal pull)
 --   35       → Aura of Devotion (Héroïque/Normal pull)
 --   38       → Divine Toll (Héroïque ; Mythique: 26/29/22)
 --   47       → Searing Radiance (Héroïque ; Mythique: 7/59)
@@ -36,18 +39,22 @@ end
 --   79/83    → Aura of Wrath (79=Mythique, 83=Héroïque)
 --   82/86    → Execution Sentence (82=Mythique, 86=Héroïque)
 --   131/132  → Aura of Peace (131=Héroïque, 132=Mythique)
---   135      → Tyr's Wrath (Mythique)
--- dur=15 = Avenger's Shield (Héroïque) — alerte tank, pas de message raid
--- dur=45 = repeating timer post-pull non cartographié par BigWigs non plus
+--   135      → Tyr's Wrath (Mythique uniquement, non tracké)
+-- Blinding Light : private aura 1258514 — détecté dans OnUnitAura
+-- Elekk Charge : buff sur les NPCs (BigWigs: "lol"), non trackable
+-- dur=15 = Avenger's Shield (Héroïque) — tank ability, pas d'alerte raid
+-- dur=45 = repeating timer post-pull, non cartographié par BigWigs non plus
 local function BuildTimerCallback(d)
-    if d == 15 or d == 10 or d == 23 or d == 20 then
-        -- 15=Avenger's Shield(Héroïque, skip raid alert), 10/23/20=Sacred Toll
-        if d == 15 then return nil end  -- Avenger's Shield = tank ability, pas d'alerte
+    if d == 15 then
+        return nil  -- Avenger's Shield (Héroïque) = tank ability, pas d'alerte
+    elseif d == 10 or d == 23 or d == 20 then
         return function() ShowAlert("SACRED TOLL — CD DE SOIN !") end
-    elseif d == 17 or d == 18 then
+    elseif d == 17 then
         return function() ShowAlert("SACRED SHIELD — BURST LE BOUCLIER !", "interrupt") end
+    elseif d == 18 then
+        return function() ShowAlert("DIVINE STORM — ÉVITEZ LES TORNADES !") end
     elseif d == 30 or d == 82 or d == 86 then
-        -- 30=Judgement Red/ExecSentence(Héroïque pull), 82=Mythique, 86=Héroïque
+        -- 30=Judgement Red(Héroïque/Normal pull), 82=Mythique, 86=Héroïque
         return function() ShowAlert("EXECUTION SENTENCE — SOAK LES CERCLES !", "soak") end
     elseif d == 35 then
         return function() ShowAlert("AURA OF DEVOTION — BELLAMY SUR LE BORD !", "phase") end
@@ -59,8 +66,6 @@ local function BuildTimerCallback(d)
         return function() ShowAlert("AURA OF WRATH — VENEL SUR LE BORD !", "phase") end
     elseif d == 131 or d == 132 then
         return function() ShowAlert("AURA OF PEACE — SENN SUR LE BORD !", "phase") end
-    elseif d == 135 then
-        return function() ShowAlert("TYR'S WRATH — ROTATIONNEZ LA POSITION !") end
     end
     return nil
 end
@@ -97,6 +102,13 @@ local function OnUnitAura(unit)
         ShowPrivate("EXECUTION SENTENCE — NE SUPERPOSEZ PAS !")
     elseif not exec then
         trackedAuras.exec = nil
+    end
+    local blind = C_UnitAuras.GetPlayerAuraBySpellID(1258514)  -- Blinding Light
+    if blind and not trackedAuras.blind then
+        trackedAuras.blind = true
+        ShowPrivate("BLINDING LIGHT — INTERROMPRE !")
+    elseif not blind then
+        trackedAuras.blind = nil
     end
 end
 
@@ -149,6 +161,8 @@ end)
 
 SLASH_LHVANGUARDTEST1 = "/lhvanguardtest"
 SlashCmdList["LHVANGUARDTEST"] = function()
-    ShowAlert("BLINDING LIGHT — INTERROMPRE !", "interrupt")
+    ShowAlert("DIVINE STORM — ÉVITEZ LES TORNADES !")
+    ShowAlert("AURA OF PEACE — SENN SUR LE BORD !", "phase")
     ShowPrivate("EXECUTION SENTENCE — NE SUPERPOSEZ PAS !")
+    ShowPrivate("BLINDING LIGHT — INTERROMPRE !")
 end

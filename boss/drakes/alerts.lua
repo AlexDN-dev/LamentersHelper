@@ -24,16 +24,13 @@ local function ShowPrivate(msg)
 end
 
 -- Durées confirmées BigWigs (Mythic, stage 1 initial pull) :
---   7            → Dread Breath (Vaelgor)
 --   30           → Nullbeam
 --   35           → Void Howl
 --   10           → Gloom (stage 1) ; 48 (stage 2) ; 25 (stage 3)
 --   8            → Midnight Flames (début intermission)
 -- Stage 2/3 : durées différentes, activer debugEncounter pour les découvrir
 local function BuildTimerCallback(d)
-    if d == 7 then
-        return function() ShowAlert("DREAD BREATH — SORTEZ SUR LE CÔTÉ !") end
-    elseif d == 30 then
+    if d == 30 then
         return function() ShowAlert("NULLBEAM — TANK SOAK !", "soak") end
     elseif d == 35 then
         return function() ShowAlert("VOID HOWL — GROUPEZ-VOUS !") end
@@ -70,12 +67,12 @@ end
 local function OnUnitAura(unit)
     if unit ~= "player" then return end
     -- Auras boss taintées en Midnight (spellId secret) — player seulement
-    local breath = C_UnitAuras.GetPlayerAuraBySpellID(1255612)  -- Dread Breath private
-    if breath and not trackedAuras.breath then
-        trackedAuras.breath = true
-        ShowPrivate("DREAD BREATH — SORTEZ SUR LE CÔTÉ !")
-    elseif not breath then
-        trackedAuras.breath = nil
+    local nullzone = C_UnitAuras.GetPlayerAuraBySpellID(1244672)  -- Nullzone (BigWigs: "underyou")
+    if nullzone and not trackedAuras.nullzone then
+        trackedAuras.nullzone = true
+        ShowPrivate("NULLZONE — BOUGEZ !")
+    elseif not nullzone then
+        trackedAuras.nullzone = nil
     end
 
     local diminish = C_UnitAuras.GetPlayerAuraBySpellID(1270852)  -- Diminish
@@ -137,5 +134,5 @@ end)
 SLASH_LHDRAKESTEST1 = "/lhdrakestest"
 SlashCmdList["LHDRAKESTEST"] = function()
     ShowAlert("GLOOM — ÉQUIPE SOAK EN POSITION !", "soak")
-    ShowPrivate("DREAD BREATH — SORTEZ SUR LE CÔTÉ !")
+    ShowPrivate("NULLZONE — BOUGEZ !")
 end

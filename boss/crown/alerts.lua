@@ -10,7 +10,7 @@ local inFight = false
 local trackedAuras = {}
 local activeTimers = {}
 local stage = 1       -- 1, 2, 3
-local dur4Count = 0   -- stage 1 : dur=4 cycle Tremor(1) → DarkHand(2) → Ravenous(3)
+local dur4Count = 0   -- stage 1 pull : dur=4 → Tremor(1) → DarkHand(2) → RavenousAbyss(3)
 local frame = CreateFrame("Frame")
 
 local function ShowAlert(msg, soundType)
@@ -54,8 +54,9 @@ end
 -- Stage 3 :
 --   60/59  → Devouring Cosmos (déclenche transition stage 3) ← unique !
 --   30/29  → Null Corona
---   39/21  → Aspect of the End
---   9/8    → Aspect of the End (refresh)
+--   39/21  → Aspect of the End ← BigWigs confirmé (21s ≠ Ranger's Mark car stage == 3)
+--   9      → Aspect of the End (nouveau cast) ← BigWigs confirmé
+--   8      → Aspect of the End (refresh du cast à 21s) ← BigWigs confirmé
 -- ============================================================
 
 local function BuildTimerCallback(d, dExact)
@@ -78,13 +79,16 @@ local function BuildTimerCallback(d, dExact)
                 return function() ShowAlert("INTERRUPTING TREMOR — STOP LES SORTS !", "interrupt") end
             elseif dur4Count == 2 then
                 return function() ShowAlert("DARK HAND — INTERROMPRE !", "interrupt") end
-            else
-                return nil  -- Ravenous Abyss (fake/cancelled) ou 4e+ occurrence
+            elseif dur4Count == 3 then
+                return function() ShowAlert("RAVENOUS ABYSS — SORTEZ DE LA ZONE !") end
             end
 
         -- Répétition stage 1
         elseif d == 21 or d == 23 then
             return function() ShowAlert("SILVERSTRIKE ARROW — VISE UN SENTINEL !") end
+        elseif dExact >= 19.3 and dExact <= 19.7 then
+            -- 19.5 = Ravenous Abyss répétitif — arrondirait à 20 sans ce check précis
+            return function() ShowAlert("RAVENOUS ABYSS — SORTEZ DE LA ZONE !") end
         elseif d == 20 then
             return function() ShowAlert("INTERRUPTING TREMOR — STOP LES SORTS !", "interrupt") end
         elseif d == 26 then
@@ -146,7 +150,7 @@ local function OnTimelineAdded(eventInfo)
 
     local cb = BuildTimerCallback(d, dExact)
     if cb then
-        activeTimers[eventInfo.id] = cb
+        activeTimers[eventInfo.id] = {cb = cb, d = d}
     elseif M.config and M.config.debugEncounter then
         print(string.format("|cff00ff00LH Debug|r CROWN TIMELINE stage=%d dur=%.2f id=%d", stage, dExact, eventInfo.id))
     end
@@ -154,9 +158,14 @@ end
 
 local function OnTimelineStateChanged(eventID)
     local state = C_EncounterTimeline.GetEventState(eventID)
-    if state == 2 then
-        local cb = activeTimers[eventID]
-        if cb then cb() end
+    local entry = activeTimers[eventID]
+    if entry then
+        if state == 2 then
+            entry.cb()
+        elseif state == 3 and entry.d == 4 and stage == 1 then
+            -- Event annulé pendant le pull : corrige le compteur pour éviter la désync
+            dur4Count = dur4Count - 1
+        end
     end
     if state == 2 or state == 3 then
         activeTimers[eventID] = nil
@@ -179,6 +188,7 @@ local function OnUnitAura(unit)
     checkPrivate(1233602, "arrow",   "SILVERSTRIKE ARROW — VISE UN SENTINEL !")
     checkPrivate(1232470, "grasp",   "GRASP OF EMPTINESS — ORIENTEZ L'OBÉLISQUE !")
     checkPrivate(1233865, "corona",  "NULL CORONA — SOIN À FOND / DISPEL SI CRITIQUE !")
+    checkPrivate(1243753, "rabyss",  "RAVENOUS ABYSS — SORTEZ DE LA ZONE !")
     checkPrivate(1237623, "mark",    "RANGER CAPTAIN'S MARK — VISE UN VOIDSPAWN !")
     checkPrivate(1237038, "sting",   "VOIDSTALKER STING — DOT SUR TOI (25s) !")
     checkPrivate(1239111, "aspect",  "ASPECT OF THE END — RESTEZ EN PLACE !")
