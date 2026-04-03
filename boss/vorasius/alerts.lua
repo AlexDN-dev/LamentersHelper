@@ -227,6 +227,30 @@ local function OnUnitAura(unit)
     end
 end
 
+-- ─── Register / Unregister CLEU ──────────────────────────────────────────────
+-- ENCOUNTER_START et ENCOUNTER_END sont des events protégés dans WoW Midnight.
+-- Register/UnregisterEvent ne peuvent pas être appelés directement depuis leurs
+-- handlers. C_Timer.After(0) diffère l'appel au prochain tick, hors contexte protégé.
+local cleuRegistered = false
+
+local function RegisterCLEU()
+    if not cleuRegistered then
+        C_Timer.After(0, function()
+            frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+            cleuRegistered = true
+        end)
+    end
+end
+
+local function UnregisterCLEU()
+    if cleuRegistered then
+        C_Timer.After(0, function()
+            frame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+            cleuRegistered = false
+        end)
+    end
+end
+
 -- ─── Reset ────────────────────────────────────────────────────────────────────
 local function ResetState()
     inFight          = false
@@ -236,9 +260,7 @@ local function ResetState()
     smashedStacks    = 0
     voidBreathActive = false
     activeTimers     = {}
-    -- CLEU n'est enregistré que pendant le combat pour éviter ADDON_ACTION_FORBIDDEN
-    -- et ne pas traiter inutilement des milliers d'events hors-combat
-    frame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+    UnregisterCLEU()
 end
 
 -- ─── Events ───────────────────────────────────────────────────────────────────
@@ -258,8 +280,7 @@ frame:SetScript("OnEvent", function(_, event, ...)
         if encounterID == ENCOUNTER_ID then
             ResetState()
             inFight = true
-            -- CLEU enregistré uniquement pendant le combat Vorasius
-            frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+            RegisterCLEU()
         end
 
     elseif event == "ENCOUNTER_END" then
@@ -268,13 +289,13 @@ frame:SetScript("OnEvent", function(_, event, ...)
             print(string.format("|cff00ff00LH Debug|r END: ID=%s", tostring(encounterID)))
         end
         if encounterID == ENCOUNTER_ID then
-            ResetState()  -- UnregisterEvent CLEU appelé ici via ResetState
+            ResetState()
             M:HideText()
             M:HidePrivateText()
         end
 
     elseif event == "PLAYER_ENTERING_WORLD" then
-        ResetState()  -- UnregisterEvent CLEU appelé ici via ResetState
+        ResetState()
 
     elseif event == "ENCOUNTER_TIMELINE_EVENT_ADDED" then
         if not inFight then return end
