@@ -9,7 +9,7 @@ function M:CreateSyncPanel()
     -- ─── En-tête ─────────────────────────────────────────────────────────────
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
     title:SetPoint("TOPLEFT", 24, -28)
-    title:SetText("Vérification de l'addon")
+    title:SetText("Verification de l'addon")
 
     local divider = frame:CreateTexture(nil, "ARTWORK")
     divider:SetColorTexture(1, 1, 1, 0.12)
@@ -19,11 +19,11 @@ function M:CreateSyncPanel()
 
     local versionLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     versionLabel:SetPoint("TOPLEFT", 24, -82)
-    versionLabel:SetText("|cffaaaaaa Version de votre addon :|r  |cffffff00" .. CURRENT_VERSION .. "|r")
+    versionLabel:SetText("|cffaaaaaa Votre version :|r  |cffffff00" .. CURRENT_VERSION .. "|r")
 
-    -- ─── Bouton de vérification ───────────────────────────────────────────────
+    -- ─── Bouton ───────────────────────────────────────────────────────────────
     local checkBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    checkBtn:SetSize(200, 30)
+    checkBtn:SetSize(190, 28)
     checkBtn:SetPoint("TOPLEFT", 24, -112)
     checkBtn:SetText("Lancer la verification")
 
@@ -31,30 +31,30 @@ function M:CreateSyncPanel()
     statusMsg:SetPoint("LEFT", checkBtn, "RIGHT", 12, 0)
     statusMsg:SetText("")
 
-    -- ─── Compteur ────────────────────────────────────────────────────────────
+    -- ─── Compteur ─────────────────────────────────────────────────────────────
     local counter = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    counter:SetPoint("TOPLEFT", 24, -152)
+    counter:SetPoint("TOPLEFT", 24, -150)
     counter:SetText("")
 
-    -- ─── Zone de résultats (scroll) ───────────────────────────────────────────
-    local scrollFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TOPLEFT", 24, -176)
-    scrollFrame:SetPoint("BOTTOMRIGHT", -40, 16)
-
-    local resultContent = CreateFrame("Frame", nil, scrollFrame)
-    resultContent:SetSize(520, 20)
-    scrollFrame:SetScrollChild(resultContent)
-
-    local emptyLabel = resultContent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    emptyLabel:SetPoint("TOPLEFT", 0, 0)
-    emptyLabel:SetTextColor(0.5, 0.5, 0.5)
-    emptyLabel:SetText("Cliquez sur 'Lancer la verification' pour commencer.")
-
+    -- ─── Lignes de résultats (max 20 membres) ────────────────────────────────
     local rows = {}
+    local ROW_HEIGHT = 20
+    local ROW_START_Y = -172
 
-    -- ─── Rafraîchissement de l'UI ─────────────────────────────────────────────
+    for i = 1, 40 do
+        local fs = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        fs:SetPoint("TOPLEFT", 24, ROW_START_Y - (i - 1) * ROW_HEIGHT)
+        fs:SetText("")
+        fs:Hide()
+        rows[i] = fs
+    end
+
+    -- ─── Rafraîchissement ─────────────────────────────────────────────────────
     local function Refresh()
-        for _, r in ipairs(rows) do r:Hide() end
+        for _, r in ipairs(rows) do
+            r:SetText("")
+            r:Hide()
+        end
 
         local results = M.syncResults or {}
         local sorted  = {}
@@ -63,13 +63,11 @@ function M:CreateSyncPanel()
         end
 
         if #sorted == 0 then
-            emptyLabel:Show()
-            counter:SetText("")
+            counter:SetText("|cffaaaaaa Cliquez sur 'Lancer la verification' pour commencer.|r")
             return
         end
-        emptyLabel:Hide()
 
-        -- Tri : ok → outdated → missing, puis par nom
+        -- Tri : ok → outdated → missing, puis alphabétique
         local order = { ok = 1, outdated = 2, missing = 3 }
         table.sort(sorted, function(a, b)
             local oa = order[a.data.status] or 4
@@ -78,46 +76,42 @@ function M:CreateSyncPanel()
             return a.name < b.name
         end)
 
-        -- Compteur ok/total
+        -- Compteur
         local okCount = 0
         for _, e in ipairs(sorted) do
             if e.data.status == "ok" then okCount = okCount + 1 end
         end
-        counter:SetText(string.format("|cffaaaaaa%d / %d membres ont l'addon a jour|r", okCount, #sorted))
+        counter:SetText(string.format(
+            "|cffaaaaaa%d / %d membres ont l'addon a jour|r",
+            okCount, #sorted
+        ))
 
         -- Lignes
         for i, entry in ipairs(sorted) do
-            if not rows[i] then
-                rows[i] = resultContent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            if rows[i] then
+                local icon, color, suffix
+                if entry.data.status == "ok" then
+                    icon   = "[v]"
+                    color  = "|cff00ff00"
+                    suffix = "  v" .. (entry.data.version or "?")
+                elseif entry.data.status == "outdated" then
+                    icon   = "[!]"
+                    color  = "|cffffff00"
+                    suffix = "  v" .. (entry.data.version or "?") .. "  (obsolete)"
+                else
+                    icon   = "[x]"
+                    color  = "|cffff4444"
+                    suffix = "  addon non installe"
+                end
+                rows[i]:SetText(color .. icon .. "|r  " .. entry.name .. "|cffaaaaaa" .. suffix .. "|r")
+                rows[i]:Show()
             end
-            rows[i]:ClearAllPoints()
-            rows[i]:SetPoint("TOPLEFT", 0, -(i - 1) * 22)
-
-            local icon, color, suffix
-            if entry.data.status == "ok" then
-                icon   = "v"
-                color  = "|cff00ff00"
-                suffix = "  v" .. (entry.data.version or "?")
-            elseif entry.data.status == "outdated" then
-                icon   = "!"
-                color  = "|cffffff00"
-                suffix = "  v" .. (entry.data.version or "?") .. "  (obsolete)"
-            else
-                icon   = "x"
-                color  = "|cffff4444"
-                suffix = "  addon non installe"
-            end
-
-            rows[i]:SetText(color .. "[" .. icon .. "]|r  " .. entry.name .. "|cffaaaaaa" .. suffix .. "|r")
-            rows[i]:Show()
         end
-
-        resultContent:SetHeight(math.max(#sorted * 22, 20))
     end
 
     M.OnSyncUpdate = Refresh
 
-    -- ─── Clic sur le bouton ───────────────────────────────────────────────────
+    -- ─── Clic bouton ─────────────────────────────────────────────────────────
     checkBtn:SetScript("OnClick", function()
         local ok, err = M:StartVersionCheck()
         if not ok then
@@ -128,13 +122,10 @@ function M:CreateSyncPanel()
             end
         else
             statusMsg:SetText("|cffaaaaaa Verification en cours (10s)...|r")
-            C_Timer.After(10, function()
-                statusMsg:SetText("")
-            end)
+            C_Timer.After(10, function() statusMsg:SetText("") end)
         end
     end)
 
-    -- ─── Refresh à l'ouverture ────────────────────────────────────────────────
     frame:SetScript("OnShow", Refresh)
 
     return frame
