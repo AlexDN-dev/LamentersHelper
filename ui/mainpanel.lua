@@ -54,62 +54,30 @@ local bossButtons = {
     { key = "glas_minuit", label = "Glas de minuit" },
 }
 
-local function ShowSection(sectionName)
-    if sectionName == "options" then
-        if not M.optionsFrame then
-            M.optionsFrame = M:CreateOptions()
-        end
+-- Table des panels enregistrés : key → { frameKey, createFn }
+-- Ajouter une entrée ici suffit pour brancher un nouveau panel.
+local PANELS = {
+    options   = { frameKey = "optionsFrame",   createFn = "CreateOptions"       },
+    imperator = { frameKey = "imperatorFrame", createFn = "CreateImperatorPanel" },
+    vorasius  = { frameKey = "vorasiusFrame",  createFn = "CreateVorasiusPanel"  },
+    couronne  = { frameKey = "crownFrame",     createFn = "CreateCrownPanel"     },
+}
 
-        if M.imperatorFrame then
-            M.imperatorFrame:Hide()
-        end
-
-        if M.crownFrame then
-            M.crownFrame:Hide()
-        end
-
-        M.optionsFrame:Show()
-    elseif sectionName == "imperator" then
-        if not M.imperatorFrame then
-            M.imperatorFrame = M:CreateImperatorPanel()
-        end
-
-        if M.optionsFrame then
-            M.optionsFrame:Hide()
-        end
-
-        if M.crownFrame then
-            M.crownFrame:Hide()
-        end
-
-        M.imperatorFrame:Show()
-    elseif sectionName == "couronne" then
-        if not M.crownFrame then
-            M.crownFrame = M:CreateCrownPanel()
-        end
-
-        if M.optionsFrame then
-            M.optionsFrame:Hide()
-        end
-
-        if M.imperatorFrame then
-            M.imperatorFrame:Hide()
-        end
-
-        M.crownFrame:Show()
-    else
-        if M.optionsFrame then
-            M.optionsFrame:Hide()
-        end
-
-        if M.imperatorFrame then
-            M.imperatorFrame:Hide()
-        end
-
-        if M.crownFrame then
-            M.crownFrame:Hide()
-        end
+local function HideAllPanels()
+    for _, p in pairs(PANELS) do
+        local f = M[p.frameKey]
+        if f then f:Hide() end
     end
+end
+
+local function ShowSection(sectionName)
+    HideAllPanels()
+    local p = PANELS[sectionName]
+    if not p then return end
+    if not M[p.frameKey] then
+        M[p.frameKey] = M[p.createFn](M)
+    end
+    M[p.frameKey]:Show()
 end
 
 local previousButton

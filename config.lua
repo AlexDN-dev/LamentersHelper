@@ -21,6 +21,9 @@ local defaults = {
     crownEncounterID = 3181,
     debugEncounter = false,
     soundEnabled = true,
+    -- Vorasius
+    vorasiusRole = "AUTO",          -- AUTO / TANK / HEALER / MELEE / RANGE
+    vorasiusMythicMode = true,      -- Mythique : 3 explosions par mur + flaques
 }
 
 M.config = {}

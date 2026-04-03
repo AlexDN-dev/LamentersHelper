@@ -262,6 +262,132 @@ function M:CreateImperatorPanel()
     return frame
 end
 
+function M:CreateVorasiusPanel()
+    local frame = CreateFrame("Frame", nil, M.content)
+    frame:SetAllPoints()
+
+    CreateSectionHeader(frame, "Vorasius — Mythique", -28)
+
+    -- ── Mode Mythique ──────────────────────────────────────────────────────────
+    local mythicCheck = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+    mythicCheck:SetPoint("TOPLEFT", 20, -72)
+    mythicCheck:SetChecked(M.config.vorasiusMythicMode)
+
+    local mythicLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    mythicLabel:SetPoint("LEFT", mythicCheck, "RIGHT", 4, 0)
+    mythicLabel:SetText("Mode Mythique  (3 explosions/mur + flaques au sol)")
+
+    mythicCheck:SetScript("OnClick", function(self)
+        M.config.vorasiusMythicMode = self:GetChecked() and true or false
+        if M.SaveConfig then M:SaveConfig() end
+    end)
+
+    -- ── Sélecteur de rôle ─────────────────────────────────────────────────────
+    local roleTitle = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    roleTitle:SetPoint("TOPLEFT", 24, -122)
+    roleTitle:SetText("Forcer le rôle  (AUTO = détection automatique par spec / rôle de groupe) :")
+
+    local ROLES = {"AUTO", "TANK", "HEALER", "MELEE", "RANGE"}
+    local ROLE_LABELS = {
+        AUTO   = "AUTO",
+        TANK   = "Tank",
+        HEALER = "Healer",
+        MELEE  = "Mêlée",
+        RANGE  = "Distance",
+    }
+    local roleButtons = {}
+    local prevBtn
+
+    local function RefreshRoleButtons()
+        local current = M.config.vorasiusRole or "AUTO"
+        for _, btn in ipairs(roleButtons) do
+            if btn.roleKey == current then
+                btn:SetAlpha(1.0)
+                btn:LockHighlight()
+            else
+                btn:SetAlpha(0.55)
+                btn:UnlockHighlight()
+            end
+        end
+    end
+
+    for i, roleKey in ipairs(ROLES) do
+        local btn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+        btn:SetSize(98, 28)
+        btn.roleKey = roleKey
+        if i == 1 then
+            btn:SetPoint("TOPLEFT", 24, -152)
+        else
+            btn:SetPoint("LEFT", prevBtn, "RIGHT", 6, 0)
+        end
+        btn:SetText(ROLE_LABELS[roleKey])
+        btn:SetScript("OnClick", function()
+            M.config.vorasiusRole = roleKey
+            if M.SaveConfig then M:SaveConfig() end
+            RefreshRoleButtons()
+        end)
+        roleButtons[i] = btn
+        prevBtn = btn
+    end
+
+    -- ── Info stratégie ────────────────────────────────────────────────────────
+    local infoBox = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    infoBox:SetPoint("TOPLEFT", 24, -202)
+    infoBox:SetWidth(560)
+    infoBox:SetJustifyH("LEFT")
+    infoBox:SetSpacing(3)
+    infoBox:SetText(
+        "|cffffcc00Strat guilde|r\n" ..
+        "  • MÊLÉE → Mur GAUCHE   |   DISTANCE → Mur DROIT\n" ..
+        "  • Mythique : 3 kills d'Ectocloque pour détruire chaque mur\n" ..
+        "  • Les Ectocloques laissent une flaque à leur mort (évitez le centre !)\n" ..
+        "  • Swap tank après 2 soaks de Shadowclaw Slam (debuff ×2)\n" ..
+        "  • Dissipez le ralentissement des joueurs fixés (healers)\n" ..
+        "  • Souffle du Vide : regardez le départ du rayon et allez de l'autre côté"
+    )
+
+    -- ── Section test des alertes ──────────────────────────────────────────────
+    CreateSectionHeader(frame, "Test des alertes", -318)
+
+    local TEST_BTNS = {
+        {arg = "slam",    label = "Shadowclaw Slam"},
+        {arg = "beam",    label = "Souffle du Vide"},
+        {arg = "adds",    label = "Ectocloques"},
+        {arg = "wall",    label = "Mur détruit"},
+        {arg = "roar",    label = "Grondement"},
+        {arg = "blister", label = "Blisterburst"},
+        {arg = "smashed", label = "Smashed"},
+    }
+
+    local prevTestBtn
+    for i, t in ipairs(TEST_BTNS) do
+        local col = (i - 1) % 4
+        local row = math.floor((i - 1) / 4)
+        local btn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+        btn:SetSize(126, 26)
+        if col == 0 then
+            btn:SetPoint("TOPLEFT", 24, -356 - row * 34)
+        else
+            btn:SetPoint("LEFT", prevTestBtn, "RIGHT", 6, 0)
+        end
+        btn:SetText(t.label)
+        btn:SetScript("OnClick", function()
+            if SlashCmdList and SlashCmdList["LHVORASIUSTEST"] then
+                SlashCmdList["LHVORASIUSTEST"](t.arg)
+            end
+        end)
+        prevTestBtn = btn
+    end
+
+    -- Refresh initial des boutons de rôle
+    frame:SetScript("OnShow", function()
+        mythicCheck:SetChecked(M.config.vorasiusMythicMode)
+        RefreshRoleButtons()
+    end)
+
+    return frame
+end
+
 function M:CreateCrownPanel()
     local frame = CreateFrame("Frame", nil, M.content)
     frame:SetAllPoints()
