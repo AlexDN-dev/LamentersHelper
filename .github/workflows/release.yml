@@ -1,0 +1,32 @@
+name: Build Release ZIP
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Créer le ZIP avec le bon nom de dossier
+        run: |
+          mkdir -p build/LamentersHelper
+          rsync -a --exclude='.git' --exclude='.github' --exclude='build' . build/LamentersHelper/
+          cd build
+          zip -r LamentersHelper.zip LamentersHelper/
+
+      - name: Publier la release "latest"
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: "LamentersHelper — Dernière version"
+          body: "Mise à jour automatique depuis la branche `main`."
+          files: build/LamentersHelper.zip
+          make_latest: true
+          prerelease: false
