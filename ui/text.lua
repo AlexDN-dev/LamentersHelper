@@ -3,6 +3,56 @@ local RL_NOTE_PLAYER = "Thiri\195\163ll"
 local FONT_FLAGS = "OUTLINE"
 local MIN_VISIBLE_DURATION = 0.75
 
+-- Couleur du texte selon le type d'alerte
+-- SetTextColor colore le texte sans couleur explicite ; les |cff...| dans le msg ont priorité
+local ALERT_COLORS = {
+    interrupt = {1,    0.27, 0.27},  -- rouge vif
+    soak      = {1,    0.9,  0.1 },  -- jaune doré
+    phase     = {0.3,  0.85, 1   },  -- cyan
+    private   = {1,    0.65, 0.2 },  -- orange chaud (alertes personnelles)
+    global    = {1,    1,    1   },  -- blanc (défaut)
+}
+
+local POP_DURATION   = 0.15   -- secondes : retour à échelle 1.0 après le "punch"
+local FLASH_DURATION = 0.4    -- secondes : disparition du fond coloré
+local FLASH_ALPHA    = 0.35   -- opacité maximale du fond coloré
+
+-- Pop : scale 1.2 → 1.0 en POP_DURATION secondes (~60fps ticker)
+local function PlayPop(frame)
+    if frame.popTimer then
+        frame.popTimer:Cancel()
+        frame.popTimer = nil
+    end
+    frame:SetScale(1.2)
+    local t0 = GetTime()
+    frame.popTimer = C_Timer.NewTicker(0.016, function()
+        local p = math.min((GetTime() - t0) / POP_DURATION, 1)
+        frame:SetScale(1.2 - 0.2 * p)
+        if p >= 1 then
+            frame:SetScale(1.0)
+            if frame.popTimer then frame.popTimer:Cancel(); frame.popTimer = nil end
+        end
+    end)
+end
+
+-- Flash : fond coloré alpha FLASH_ALPHA → 0 en FLASH_DURATION secondes
+local function PlayFlash(flashTex, r, g, b)
+    if flashTex.flashTimer then
+        flashTex.flashTimer:Cancel()
+        flashTex.flashTimer = nil
+    end
+    flashTex:SetColorTexture(r, g, b, FLASH_ALPHA)
+    local t0 = GetTime()
+    flashTex.flashTimer = C_Timer.NewTicker(0.016, function()
+        local p = math.min((GetTime() - t0) / FLASH_DURATION, 1)
+        flashTex:SetColorTexture(r, g, b, FLASH_ALPHA * (1 - p))
+        if p >= 1 then
+            flashTex:SetColorTexture(r, g, b, 0)
+            if flashTex.flashTimer then flashTex.flashTimer:Cancel(); flashTex.flashTimer = nil end
+        end
+    end)
+end
+
 local function GetCenterOffsets(frame, fallbackX, fallbackY)
     local centerX, centerY = frame:GetCenter()
     local parentCenterX, parentCenterY = UIParent:GetCenter()
@@ -50,12 +100,27 @@ local function HideChannel(channel)
         channel.displayFrame.timer = nil
     end
 
+    -- Annulation des animations en cours
+    if channel.displayFrame.popTimer then
+        channel.displayFrame.popTimer:Cancel()
+        channel.displayFrame.popTimer = nil
+    end
+    channel.displayFrame:SetScale(1.0)
+
+    if channel.flashTex then
+        if channel.flashTex.flashTimer then
+            channel.flashTex.flashTimer:Cancel()
+            channel.flashTex.flashTimer = nil
+        end
+        channel.flashTex:SetColorTexture(0, 0, 0, 0)
+    end
+
     channel.displayText:SetText("")
     channel.displayFrame:SetAlpha(1)
     channel.displayFrame:Hide()
 end
 
-local function ShowChannel(channel, msg)
+local function ShowChannel(channel, msg, soundType)
     if not channel.displayFrame or not channel.displayText then
         return
     end
@@ -63,10 +128,20 @@ local function ShowChannel(channel, msg)
     UpdateChannelPosition(channel)
     UpdateChannelSize(channel)
 
+    local c = ALERT_COLORS[soundType] or ALERT_COLORS["global"]
+    channel.displayText:SetTextColor(c[1], c[2], c[3], 1)
     channel.displayText:SetText(msg)
     channel.displayFrame:SetAlpha(0)
     channel.displayFrame:Show()
     UIFrameFadeIn(channel.displayFrame, 0.05, 0, 1)
+
+    -- Pop + Flash (uniquement pour les alertes avec durée, pas la RL note persistante)
+    if channel.durationKey then
+        PlayPop(channel.displayFrame)
+        if channel.flashTex and soundType and soundType ~= "global" then
+            PlayFlash(channel.flashTex, c[1], c[2], c[3])
+        end
+    end
 
     if channel.displayFrame.timer then
         channel.displayFrame.timer:Cancel()
@@ -142,6 +217,7 @@ local function CreateTextChannel(channel)
     display:SetSize(channel.width, channel.height)
     display:SetPoint("CENTER", UIParent, "CENTER", M.config[channel.posXKey], M.config[channel.posYKey])
     display:SetFrameStrata("HIGH")
+    display:EnableMouse(false)
 
     local displayText = display:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
     displayText:SetPoint("TOPLEFT", 12, -12)
@@ -152,6 +228,14 @@ local function CreateTextChannel(channel)
     displayText:SetTextColor(1, 1, 1, 1)
     displayText:SetShadowOffset(1, -1)
     displayText:SetShadowColor(0, 0, 0, 0.85)
+
+    -- Fond coloré flash (alertes avec durée uniquement, pas la RL note persistante)
+    if channel.durationKey then
+        local flashTex = display:CreateTexture(nil, "BACKGROUND")
+        flashTex:SetAllPoints()
+        flashTex:SetColorTexture(0, 0, 0, 0)
+        channel.flashTex = flashTex
+    end
 
     display:Hide()
 
@@ -223,12 +307,12 @@ function M:CreatePreviewText()
     self.rlNoteDisplayText = rlNoteChannel.displayText
 end
 
-function M:ShowText(msg)
+function M:ShowText(msg, soundType)
     if not self.displayFrame or not self.displayText then
         self:CreatePreviewText()
     end
 
-    ShowChannel(globalChannel, msg)
+    ShowChannel(globalChannel, msg, soundType)
 end
 
 function M:HideText()
@@ -240,7 +324,7 @@ function M:ShowPrivateText(msg)
         self:CreatePreviewText()
     end
 
-    ShowChannel(privateChannel, msg)
+    ShowChannel(privateChannel, msg, "private")
 end
 
 function M:HidePrivateText()

@@ -236,6 +236,9 @@ local function ResetState()
     smashedStacks    = 0
     voidBreathActive = false
     activeTimers     = {}
+    -- CLEU n'est enregistré que pendant le combat pour éviter ADDON_ACTION_FORBIDDEN
+    -- et ne pas traiter inutilement des milliers d'events hors-combat
+    frame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 end
 
 -- ─── Events ───────────────────────────────────────────────────────────────────
@@ -244,7 +247,6 @@ frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED")
-frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 frame:RegisterUnitEvent("UNIT_AURA", "player")
 
 frame:SetScript("OnEvent", function(_, event, ...)
@@ -256,6 +258,8 @@ frame:SetScript("OnEvent", function(_, event, ...)
         if encounterID == ENCOUNTER_ID then
             ResetState()
             inFight = true
+            -- CLEU enregistré uniquement pendant le combat Vorasius
+            frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
         end
 
     elseif event == "ENCOUNTER_END" then
@@ -264,13 +268,13 @@ frame:SetScript("OnEvent", function(_, event, ...)
             print(string.format("|cff00ff00LH Debug|r END: ID=%s", tostring(encounterID)))
         end
         if encounterID == ENCOUNTER_ID then
-            ResetState()
+            ResetState()  -- UnregisterEvent CLEU appelé ici via ResetState
             M:HideText()
             M:HidePrivateText()
         end
 
     elseif event == "PLAYER_ENTERING_WORLD" then
-        ResetState()
+        ResetState()  -- UnregisterEvent CLEU appelé ici via ResetState
 
     elseif event == "ENCOUNTER_TIMELINE_EVENT_ADDED" then
         if not inFight then return end
