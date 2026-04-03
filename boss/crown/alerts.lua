@@ -14,7 +14,7 @@ local dur4Count = 0   -- stage 1 pull : dur=4 → Tremor(1) → DarkHand(2) → 
 local frame = CreateFrame("Frame")
 
 local function ShowAlert(msg, soundType)
-    M:ShowText(msg)
+    M:ShowText(msg, soundType)
     if M.PlayAlertSound then M:PlayAlertSound(soundType or "global") end
     C_Timer.After(M.config and M.config.textDuration or 4, function() M:HideText() end)
 end

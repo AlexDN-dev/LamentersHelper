@@ -12,7 +12,7 @@ local activeTimers = {}  -- eventID → callback, pour STATE_CHANGED
 local frame = CreateFrame("Frame")
 
 local function ShowAlert(msg, soundType)
-    M:ShowText(msg)
+    M:ShowText(msg, soundType)
     if M.PlayAlertSound then M:PlayAlertSound(soundType or "global") end
     C_Timer.After(M.config and M.config.textDuration or 4, function() M:HideText() end)
 end
