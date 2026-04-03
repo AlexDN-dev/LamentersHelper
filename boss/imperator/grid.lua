@@ -58,6 +58,25 @@ local function GetShortName(name)
     return name and (string.match(name, "^[^%-]+") or name) or ""
 end
 
+-- true si l’expéditeur du message addon est le joueur local (nom + royaume).
+-- Ne pas comparer seulement le prénom : deux comptes « même pseudo » sur royaumes différents
+-- feraient croire à un message à soi-même et ignoreraient le SOAK pour les autres.
+local function AddonSenderIsSelf(sender)
+    if not sender or sender == "" then
+        return false
+    end
+    local sName, sRealm = strsplit("-", sender, 2)
+    if sRealm then
+        sRealm = sRealm:gsub("^%s+", ""):gsub("%s+$", "")
+    end
+    local myName = UnitName("player")
+    local myRealm = GetRealmName and GetRealmName() or ""
+    if not sRealm or sRealm == "" then
+        return strlower(sName) == strlower(myName)
+    end
+    return strlower(sName) == strlower(myName) and sRealm == myRealm
+end
+
 local function GetCenterOffsets(frame)
     local centerX, centerY = frame:GetCenter()
     local parentCenterX, parentCenterY = UIParent:GetCenter()
@@ -159,8 +178,14 @@ gridFrame:SetScript("OnDragStop", function(self)
     if M.SaveConfig then M:SaveConfig() end
 end)
 
+-- Qui peut voir la grille (RL + tanks) — le raid reçoit toujours le texte SOAK, pas la grille.
 local function IsGridAllowed()
     return ROLE == "rl" or UnitGroupRolesAssigned("player") == "TANK"
+end
+
+-- Seul le RL place les cases et envoie l’addon (pseudo codé en dur ci‑dessus).
+local function CanEditGrid()
+    return ROLE == "rl"
 end
 
 function M:RefreshGridVisibility()
@@ -205,7 +230,7 @@ for row = 1, 3 do
         end
 
         btn:SetScript("OnClick", function()
-            if ROLE ~= "rl" then return end
+            if not CanEditGrid() then return end
             if locked then return end
             if selected[index] then return end
             if blocked[index] then return end
@@ -235,7 +260,7 @@ for row = 1, 3 do
 
                 local message = BuildSoakMessage(list, bestChoice)
                 if message and M.ShowText then
-                    M:ShowText(message)
+                    M:ShowText(message, "soak")
                 end
 
                 if M.PlayAlertSound then
@@ -279,7 +304,17 @@ local resetBtn = CreateFrame("Button", nil, gridFrame, "UIPanelButtonTemplate")
 resetBtn:SetSize(120, 30)
 resetBtn:SetPoint("BOTTOM", 0, 15)
 resetBtn:SetText("Reset")
-resetBtn:SetScript("OnClick", ResetGrid)
+resetBtn:SetScript("OnClick", function()
+    if not CanEditGrid() then return end
+    ResetGrid()
+    local channel = IsInRaid() and "RAID" or (IsInGroup() and "PARTY" or nil)
+    if channel then
+        C_ChatInfo.SendAddonMessage("LH_GRID", "RESET", channel)
+    end
+end)
+if not CanEditGrid() then
+    resetBtn:Hide()
+end
 
 -- === Événements (frame unique) ===
 
@@ -293,7 +328,20 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
     if event == "CHAT_MSG_ADDON" then
         local prefix, msg, _, sender = ...
         if prefix ~= "LH_GRID" then return end
-        if GetShortName(sender) == PLAYER_NAME then return end
+        if AddonSenderIsSelf(sender) then return end
+
+        if msg == "RESET" then
+            if IsGridAllowed() then
+                ResetGrid()
+                if M.RefreshGridVisibility then
+                    M:RefreshGridVisibility()
+                end
+            end
+            if M.config and M.config.debugEncounter then
+                print(string.format("|cff00ff00LH Grid|r RX RESET from %s", tostring(sender)))
+            end
+            return
+        end
 
         local sel, red = strsplit("|", msg)
         local list = {}
@@ -301,6 +349,22 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
             table.insert(list, tonumber(v))
         end
         red = tonumber(red)
+
+        -- Tout le monde reçoit le texte / son ; seuls RL + tanks reçoivent la mise à jour visuelle de la grille.
+        local message = BuildSoakMessage(list, red)
+        if message and M.ShowText then
+            M:ShowText(message, "soak")
+            if M.PlayAlertSound then
+                M:PlayAlertSound("soak")
+            end
+        end
+
+        if not IsGridAllowed() then
+            if M.config and M.config.debugEncounter then
+                print(string.format("|cff00ff00LH Grid|r RX %s msg=%s (texte seul, pas de grille UI)", tostring(sender), tostring(msg)))
+            end
+            return
+        end
 
         if not gridFrame:IsShown() and M.RefreshGridVisibility then
             M:RefreshGridVisibility()
@@ -318,6 +382,7 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
         -- Reset timer viewer : remet à gris les cases non-bloquées après 10s (identique au RL)
         if resetTimer then resetTimer:Cancel() end
         resetTimer = C_Timer.NewTimer(10, function()
+            if not IsGridAllowed() then return end
             for i, b in ipairs(buttons) do
                 if not blocked[i] then
                     b:SetBackdropColor(0.5, 0.5, 0.5, 1)
@@ -328,9 +393,8 @@ eventFrame:SetScript("OnEvent", function(_, event, ...)
             locked = false
         end)
 
-        local message = BuildSoakMessage(list, red)
-        if message and M.ShowText then
-            M:ShowText(message)
+        if M.config and M.config.debugEncounter then
+            print(string.format("|cff00ff00LH Grid|r RX %s msg=%s", tostring(sender), tostring(msg)))
         end
 
     elseif event == "ENCOUNTER_START" then
@@ -361,6 +425,10 @@ end
 
 -- Simule une sélection RL et la broadcast au raid/party
 local function SimulateGridSelection(list)
+    if not CanEditGrid() then
+        print("|cffff6600LH Grid|r Réservé au personnage RL (test).|r")
+        return
+    end
     ResetGrid()
     gridFrame:Show()
 
@@ -380,7 +448,7 @@ local function SimulateGridSelection(list)
 
     local message = BuildSoakMessage(list, bestChoice)
     if message and M.ShowText then
-        M:ShowText(message)
+        M:ShowText(message, "soak")
     end
     if M.PlayAlertSound then
         M:PlayAlertSound("soak")
@@ -407,6 +475,10 @@ end
 
 SLASH_LHGRIDTEST1 = "/lhgridtest"
 SlashCmdList["LHGRIDTEST"] = function(args)
+    if not CanEditGrid() then
+        print("|cffff6600LH Grid|r /lhgridtest : personnage RL uniquement.|r")
+        return
+    end
     -- /lhgridtest          → test par défaut : cases 2, 5, 8 (colonne du milieu)
     -- /lhgridtest 1 5 9    → test avec cases personnalisées
     local a, b, c = args:match("(%d+)%s+(%d+)%s+(%d+)")
