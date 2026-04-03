@@ -61,6 +61,7 @@ local PANELS = {
     imperator = { frameKey = "imperatorFrame", createFn = "CreateImperatorPanel" },
     vorasius  = { frameKey = "vorasiusFrame",  createFn = "CreateVorasiusPanel"  },
     couronne  = { frameKey = "crownFrame",     createFn = "CreateCrownPanel"     },
+    sync      = { frameKey = "syncFrame",      createFn = "CreateSyncPanel"      },
 }
 
 local function HideAllPanels()
@@ -100,9 +101,17 @@ for index, boss in ipairs(bossButtons) do
     previousButton = button
 end
 
+local syncBtn = CreateFrame("Button", nil, menu, "UIPanelButtonTemplate")
+syncBtn:SetSize(140, 32)
+syncBtn:SetPoint("TOP", previousButton, "BOTTOM", 0, -18)
+syncBtn:SetText("Verif Addon")
+syncBtn:SetScript("OnClick", function()
+    ShowSection("sync")
+end)
+
 local optionsBtn = CreateFrame("Button", nil, menu, "UIPanelButtonTemplate")
 optionsBtn:SetSize(140, 32)
-optionsBtn:SetPoint("TOP", previousButton, "BOTTOM", 0, -18)
+optionsBtn:SetPoint("TOP", syncBtn, "BOTTOM", 0, -10)
 optionsBtn:SetText("Options")
 optionsBtn:SetScript("OnClick", function()
     ShowSection("options")

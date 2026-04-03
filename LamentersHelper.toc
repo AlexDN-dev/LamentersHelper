@@ -2,7 +2,7 @@
 ## Title: Lamenters Helper
 ## Notes: Private raid helper for Lamenters guild
 ## Author: Thiriall
-## Version: 0.1
+## Version: 1.0
 ## OptionalDeps: LibSharedMedia-3.0
 
 ## SavedVariables: LamentersHelperDB
@@ -15,6 +15,7 @@ ui/text.lua
 ui/sound.lua
 
 modules/alerts.lua
+modules/sync.lua
 boss/imperator/grid.lua
 boss/imperator/alerts.lua
 boss/vorasius/alerts.lua
@@ -25,3 +26,4 @@ boss/crown/alerts.lua
 
 ui/mainpanel.lua
 ui/options.lua
+ui/syncpanel.lua

@@ -36,6 +36,10 @@ function M:PLAYER_LOGIN()
         self:CreatePreviewText()
     end
 
+    if self.InitSync then
+        self:InitSync()
+    end
+
     print("|cff00ff00LamentersHelper loaded!|r")
 end
 
