@@ -10,9 +10,14 @@ local ENCOUNTER_ID = 3176
 -- Debuff spellID 1280023, 2 cibles par vague, 2 vagues par cycle (~80s)
 -- Vague A → Vague B ~8s après → prochain cycle ~80s plus tard
 -- Tous les dispels healer ont 8s de CD → rotation par application individuelle
-local VOID_MARKED_ID     = 1280023
-local DISPEL_ROTATION    = { "Lill\195\164ka", "Smiths", "Wadabloom", "C\195\164bron" }
-local voidMarkCount      = 0   -- reset à chaque ENCOUNTER_START
+-- La rotation est configurable dans /lh → Imperator (RL/assist)
+local VOID_MARKED_ID = 1280023
+local voidMarkCount  = 0   -- reset à chaque ENCOUNTER_START
+
+local function GetDispelRotation()
+    return (M.config and M.config.imperatorDispelRotation) or
+           { "Lill\195\164ka", "Smiths", "Wadabloom", "C\195\164bron" }
+end
 
 -- ─── État du combat ──────────────────────────────────────────────────────────
 local inFight      = false
@@ -63,8 +68,9 @@ end
 -- ─── Void Marked : assignation du healer ─────────────────────────────────────
 local function OnVoidMarked(destName)
     voidMarkCount = voidMarkCount + 1
-    local idx      = ((voidMarkCount - 1) % #DISPEL_ROTATION) + 1
-    local assigned = DISPEL_ROTATION[idx]
+    local rot      = GetDispelRotation()
+    local idx      = ((voidMarkCount - 1) % #rot) + 1
+    local assigned = rot[idx]
     local myName   = UnitName("player")
 
     -- Alerte globale : tout le monde voit qui est marqué
@@ -76,8 +82,9 @@ local function OnVoidMarked(destName)
     end
 
     if M.config and M.config.debugEncounter then
-        print(string.format("|cff00ff00LH Imperator|r VoidMark #%d → %s assigné à %s (moi=%s)",
-            voidMarkCount, destName, assigned, myName))
+        local rot = GetDispelRotation()
+        print(string.format("|cff00ff00LH Imperator|r VoidMark #%d → %s assigné à %s [%d/%d] (moi=%s)",
+            voidMarkCount, destName, assigned, idx, #rot, myName))
     end
 end
 
