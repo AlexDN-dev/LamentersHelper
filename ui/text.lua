@@ -11,23 +11,32 @@ local ALERT_COLORS = {
     phase     = {0.3,  0.85, 1   },  -- cyan
     private   = {1,    0.65, 0.2 },  -- orange chaud (alertes personnelles)
     global    = {1,    1,    1   },  -- blanc (défaut)
+    dispel    = {1,    0.1,  1   },  -- magenta vif (alerte dispel urgente)
+}
+
+-- Intensité du pop selon le type d'alerte (scale max)
+local POP_SCALE = {
+    dispel = 1.5,   -- plus agressif pour les dispels
 }
 
 local POP_DURATION   = 0.15   -- secondes : retour à échelle 1.0 après le "punch"
 local FLASH_DURATION = 0.4    -- secondes : disparition du fond coloré
 local FLASH_ALPHA    = 0.35   -- opacité maximale du fond coloré
 
--- Pop : scale 1.2 → 1.0 en POP_DURATION secondes (~60fps ticker)
-local function PlayPop(frame)
+-- Pop : scale → 1.0 en POP_DURATION secondes (~60fps ticker)
+-- maxScale : 1.2 par défaut, 1.5 pour les alertes dispel
+local function PlayPop(frame, maxScale)
+    maxScale = maxScale or 1.2
     if frame.popTimer then
         frame.popTimer:Cancel()
         frame.popTimer = nil
     end
-    frame:SetScale(1.2)
+    frame:SetScale(maxScale)
     local t0 = GetTime()
+    local delta = maxScale - 1.0
     frame.popTimer = C_Timer.NewTicker(0.016, function()
         local p = math.min((GetTime() - t0) / POP_DURATION, 1)
-        frame:SetScale(1.2 - 0.2 * p)
+        frame:SetScale(maxScale - delta * p)
         if p >= 1 then
             frame:SetScale(1.0)
             if frame.popTimer then frame.popTimer:Cancel(); frame.popTimer = nil end
@@ -137,7 +146,7 @@ local function ShowChannel(channel, msg, soundType)
 
     -- Pop + Flash (uniquement pour les alertes avec durée, pas la RL note persistante)
     if channel.durationKey then
-        PlayPop(channel.displayFrame)
+        PlayPop(channel.displayFrame, POP_SCALE[soundType])
         if channel.flashTex and soundType and soundType ~= "global" then
             PlayFlash(channel.flashTex, c[1], c[2], c[3])
         end
@@ -329,6 +338,32 @@ end
 
 function M:HidePrivateText()
     HideChannel(privateChannel)
+end
+
+-- Alerte dispel : même canal que private mais THICKOUTLINE + magenta + pop agressif
+function M:ShowDispelText(msg)
+    if not self.privateDisplayFrame or not self.privateDisplayText then
+        self:CreatePreviewText()
+    end
+
+    -- Bascule temporairement la police en THICKOUTLINE pour l'effet "gras"
+    local size = M.config and M.config[privateChannel.sizeKey] or 28
+    privateChannel.displayText:SetFont("Fonts\\FRIZQT__.TTF", size, "THICKOUTLINE")
+
+    ShowChannel(privateChannel, msg, "dispel")
+
+    -- Restaure OUTLINE après la durée de l'alerte
+    local duration = (M.config and M.config[privateChannel.durationKey]) or privateChannel.defaultDuration or 5
+    C_Timer.After(duration + 0.1, function()
+        privateChannel.displayText:SetFont("Fonts\\FRIZQT__.TTF", size, FONT_FLAGS)
+    end)
+end
+
+function M:HideDispelText()
+    HideChannel(privateChannel)
+    -- Restaure la police normale immédiatement
+    local size = M.config and M.config[privateChannel.sizeKey] or 28
+    privateChannel.displayText:SetFont("Fonts\\FRIZQT__.TTF", size, FONT_FLAGS)
 end
 
 function M:ToggleTextAnchors()

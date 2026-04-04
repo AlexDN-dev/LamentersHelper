@@ -14,12 +14,21 @@ local SOUND_DEFS = {
     soak      = SOUNDKIT.ALARM_CLOCK_WARNING_2 or 12866,
     -- Alerte personnelle (debuff sur soi)
     private   = SOUNDKIT.ALARM_CLOCK_WARNING_3 or 12867,
+    -- Dispel urgent — RAID_WARNING joué 2 fois pour forcer l'attention
+    dispel    = SOUNDKIT.RAID_WARNING          or 8960,
 }
 
--- soundType : "global" | "phase" | "interrupt" | "soak" | "private"
+-- soundType : "global" | "phase" | "interrupt" | "soak" | "private" | "dispel"
 function M:PlayAlertSound(soundType)
     if not M.config or M.config.soundEnabled == false then return end
 
     local kit = SOUND_DEFS[soundType] or SOUND_DEFS.global
     PlaySound(kit, "Master", false)
+
+    -- Double ping pour les dispels : 2ème son 0.3s après
+    if soundType == "dispel" then
+        C_Timer.After(0.3, function()
+            PlaySound(kit, "Master", false)
+        end)
+    end
 end

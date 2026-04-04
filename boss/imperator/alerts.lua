@@ -35,6 +35,12 @@ local function ShowPrivate(msg)
     C_Timer.After(M.config and M.config.privateTextDuration or 5, function() M:HidePrivateText() end)
 end
 
+local function ShowDispel(msg)
+    M:ShowDispelText(msg)
+    if M.PlayAlertSound then M:PlayAlertSound("dispel") end
+    C_Timer.After(M.config and M.config.privateTextDuration or 5, function() M:HideDispelText() end)
+end
+
 -- ─── CLEU (enregistré uniquement pendant l'encounter pour éviter ADDON_ACTION_FORBIDDEN) ──
 local function RegisterCLEU()
     if not cleuRegistered then
@@ -64,9 +70,9 @@ local function OnVoidMarked(destName)
     -- Alerte globale : tout le monde voit qui est marqué
     ShowAlert("|cffc080ff[VOID MARKED]|r  " .. destName)
 
-    -- Alerte privée uniquement pour le healer assigné
+    -- Alerte dispel uniquement pour le healer assigné (son double + texte gras magenta)
     if myName == assigned then
-        ShowPrivate("|cffc080ff[VOID MARKED]|r  DISPELL  |cffffff00" .. destName .. "|r  !")
+        ShowDispel("DISPELL  |cffffff00" .. destName .. "|r  !")
     end
 
     if M.config and M.config.debugEncounter then
