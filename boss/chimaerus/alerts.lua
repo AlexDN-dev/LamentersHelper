@@ -1,21 +1,24 @@
 local addonName, M = ...
 
 -- Chimaerus the Undreamt God — The Voidspire (Midnight 12.0) — Mythique
--- IMPORTANT: eventInfo.spellID est tainté en Midnight. Identification par eventInfo.duration.
-local ENCOUNTER_ID = 3178   -- à confirmer en jeu via debugEncounter
+-- IMPORTANT: eventInfo.spellID tainté en Midnight → identification par durée.
+-- CLEU utilisé pour auras et casts adds/boss.
+local ENCOUNTER_ID = 3178   -- à confirmer via debugEncounter
 
 -- ─── Spell IDs ────────────────────────────────────────────────────────────────
-local ALNDUST_UPHEAVAL_ID  = 1262289  -- Soak cercle ciblant le tank → envoie les soakers en Rift
-local RIFT_MADNESS_ID      = 1264756  -- Mythic : debuff sur 2 joueurs Rift (dont 1 healer)
-local CONSUMING_MIASMA_ID  = 1257087  -- Debuff dispellable → explosion AoE qui détruit les flaques
-local RENDING_TEAR_ID      = 1272726  -- Tankbuster frontal + knockback → swap tank
-local CAUSTIC_PHLEGM_ID    = 1246621  -- DoT nature raid-wide 12s
-local RIFT_EMERGENCE_ID    = 1258610  -- Spawn adds dans le Rift
-local CONSUME_ID           = 1245396  -- Canal 10s à 100 énergie — mange les adds restants
-local CORRUPTED_DEV_ID     = 1245486  -- Phase 2 : ligne + avancée boss
-local RAVENOUS_DIVE_ID     = 1245406  -- Phase 2 : saut au sol → retour phase 1
-local FEARSOME_CRY_ID      = 1249017  -- Add : AoE fear → interruption requise
-local DISSONANCE_ID        = 1267201  -- Mythic : pulsion dégâts si realms mélangés
+-- Auras CLEU (SPELL_AURA_APPLIED)
+local ALNDUST_UPHEAVAL_ID  = 1262289  -- Soak cercle tank → envoie soakers en Rift
+local RIFT_MADNESS_ID      = 1264756  -- Mythic : debuff 2 joueurs Rift (pression croissante)
+local CONSUMING_MIASMA_ID  = 1257087  -- Dispellable → explose et détruit flaques
+local RENDING_TEAR_ID      = 1272726  -- Tankbuster frontal → debuff tank → SWAP
+local CAUSTIC_PHLEGM_ID    = 1246621  -- DoT nature raid 12s
+local DISSONANCE_ID        = 1267201  -- Mythic : dégâts si mauvais realm
+
+-- Casts CLEU (SPELL_CAST_START)
+local FEARSOME_CRY_ID      = 1249017  -- Add Haunting Essence : AoE fear → INTERROMPRE
+local CONSUME_ID           = 1245396  -- Boss canal 10s à 100 énergie → tuer adds
+local CORRUPTED_DEV_ID     = 1245486  -- Phase 2 : ligne boss → ÉVITER
+local RAVENOUS_DIVE_ID     = 1245406  -- Phase 2 : saut → retour phase 1
 
 -- ─── Rotation de dispel Consuming Miasma ─────────────────────────────────────
 local miasmaCount = 0
@@ -25,8 +28,7 @@ local function GetMiasmaRotation()
            { "Lill\195\164ka", "Smiths", "Wadabloom", "C\195\164bron" }
 end
 
--- ─── Groupes de soak Alndust Upheaval ────────────────────────────────────────
--- Groupe A = groupes raid 1&3, Groupe B = groupes raid 2&4 — détection automatique
+-- ─── Détection groupe raid (soak) ────────────────────────────────────────────
 local soakCount = 0
 
 local function GetPlayerRaidGroup()
@@ -37,12 +39,11 @@ local function GetPlayerRaidGroup()
     return nil
 end
 
-
 -- ─── État du combat ───────────────────────────────────────────────────────────
-local inFight         = false
-local activeTimers    = {}
-local trackedAuras    = {}
-local cleuRegistered  = false
+local inFight        = false
+local activeTimers   = {}
+local trackedAuras   = {}
+local cleuRegistered = false
 
 local frame = CreateFrame("Frame")
 
@@ -89,8 +90,6 @@ local function OnMiasmaApplied(destName)
     local assigned = rot[idx]
     local myName   = UnitName("player")
 
-    ShowAlert("|cff80ff80[MIASMA]|r  " .. destName .. "  — DISPELL !", "dispel", CONSUMING_MIASMA_ID)
-
     if myName == assigned then
         ShowDispel("DISPELL  |cffffff00" .. destName .. "|r  !", CONSUMING_MIASMA_ID)
     end
@@ -101,61 +100,92 @@ local function OnMiasmaApplied(destName)
     end
 end
 
--- ─── Rift Madness : alerte simple ────────────────────────────────────────────
+-- ─── Rift Madness : alerte privée uniquement ─────────────────────────────────
 local function OnRiftMadnessApplied(destName)
     local myName = UnitName("player")
 
-    ShowAlert("|cffff8000[RIFT MADNESS]|r  " .. destName .. "  — COUVREZ !", "phase", RIFT_MADNESS_ID)
-
     if myName == destName then
-        ShowPrivate("RIFT MADNESS — UN JOUEUR DE L'AUTRE REALM VIENT SUR TOI !", RIFT_MADNESS_ID)
+        ShowPrivate("RIFT MADNESS — UN JOUEUR VIENT TE COUVRIR !", RIFT_MADNESS_ID)
+    end
+
+    -- RL voit le nom dans le chat (discret, pas d'alerte écran)
+    if IsRaidOfficer() or UnitIsGroupLeader("player") then
+        print("|cffff8000LH Chimaerus|r Rift Madness → " .. destName)
     end
 end
 
--- ─── Alndust Upheaval : soak par groupe alterné ───────────────────────────────
+-- ─── Alndust Upheaval : soak alterné groupes 1&3 / 2&4 ──────────────────────
 local function OnUpheavalApplied(destName)
     soakCount = soakCount + 1
-    local isGroupA  = (soakCount % 2 == 1)
+    local isGroupA   = (soakCount % 2 == 1)
     local groupLabel = isGroupA and "GROUPE A (1&3)" or "GROUPE B (2&4)"
 
-    ShowAlert("|cffffff00[UPHEAVAL]|r  " .. groupLabel .. "  — SOAK !", "soak", ALNDUST_UPHEAVAL_ID)
+    ShowAlert("[UPHEAVAL]  " .. groupLabel .. "  — SOAK !", "soak", ALNDUST_UPHEAVAL_ID)
 
     local myGroup = GetPlayerRaidGroup()
-    local myTurn  = myGroup and (isGroupA and (myGroup == 1 or myGroup == 3)
-                                          or (myGroup == 2 or myGroup == 4))
+    local myTurn  = myGroup and (
+        isGroupA and (myGroup == 1 or myGroup == 3) or
+        (not isGroupA) and (myGroup == 2 or myGroup == 4)
+    )
     if myTurn then
-        ShowPrivate("SOAK — TON TOUR  |cffffff00" .. groupLabel .. "|r  !", ALNDUST_UPHEAVAL_ID)
+        ShowPrivate("TON TOUR DE SOAK  — " .. groupLabel, ALNDUST_UPHEAVAL_ID)
     end
 
     if M.config and M.config.debugEncounter then
-        print(string.format("|cff00ff00LH Chimaerus|r Upheaval #%d → %s (monGroupe=%s, monTour=%s)",
+        print(string.format("|cff00ff00LH Chimaerus|r Upheaval #%d → %s (groupe=%s, monTour=%s)",
             soakCount, groupLabel, tostring(myGroup), tostring(myTurn)))
     end
 end
 
--- ─── Timeline callbacks ───────────────────────────────────────────────────────
--- Les durées réelles BigWigs sont à confirmer en jeu (debugEncounter)
--- On utilise CLEU pour les auras, et timeline pour les casts boss
+-- ─── Rending Tear : tankbuster → swap ────────────────────────────────────────
+-- Le debuff est appliqué sur le tank actif → l'off-tank doit taunt
+local function OnRendingTearApplied(destName)
+    local myName = UnitName("player")
+    local role   = M:GetRole()
+
+    if myName == destName then
+        -- Tank actif : tu as le debuff, l'autre tank va taunt
+        ShowPrivate("RENDING TEAR SUR TOI — ATTEND LE TAUNT !", RENDING_TEAR_ID)
+    elseif role == "TANK" then
+        -- Off-tank : c'est ton tour de taunt
+        ShowPrivate("RENDING TEAR — TAUNT " .. destName .. " !", RENDING_TEAR_ID)
+    else
+        -- Reste du raid : info positionnement
+        ShowAlert("RENDING TEAR — FRONTALE SUR " .. destName .. " !", "global", RENDING_TEAR_ID)
+    end
+end
+
+-- ─── Fearsome Cry : cast add → interrompre ───────────────────────────────────
+local fearCryCooldown = false
+
+local function OnFearsomeCryCast()
+    if fearCryCooldown then return end
+    fearCryCooldown = true
+    C_Timer.After(3, function() fearCryCooldown = false end)
+
+    ShowAlert("FEARSOME CRY — INTERROMPRE !", "interrupt", FEARSOME_CRY_ID)
+end
+
+-- ─── Consume : canal boss → tuer les adds ────────────────────────────────────
+local function OnConsumeCast()
+    ShowAlert("CONSUME — TUEZ LES ADDS RESTANTS !", "phase", CONSUME_ID)
+end
+
+-- ─── Corrupted Devastation : Phase 2 ligne ───────────────────────────────────
+local function OnCorruptedDevCast()
+    ShowAlert("CORRUPTED DEVASTATION — ÉVITEZ LA LIGNE !", "phase", CORRUPTED_DEV_ID)
+end
+
+-- ─── Ravenous Dive : transition retour phase 1 ───────────────────────────────
+local function OnRavenousDiveCast()
+    ShowAlert("RAVENOUS DIVE — RETOUR PHASE 1 !", "phase", RAVENOUS_DIVE_ID)
+end
+
+-- ─── Timeline : Caustic Phlegm (DoT raid) ────────────────────────────────────
+-- Durée 12s — confirmée BigWigs
 local function BuildTimerCallback(d)
-    -- Rending Tear (tankbuster) — durée typique ~2-3s cast
-    if d == 2 or d == 3 then
-        return function()
-            local role = M:GetRole()
-            if role == "TANK" then
-                ShowPrivate("RENDING TEAR — FRONTALE + KNOCKBACK !", RENDING_TEAR_ID)
-            else
-                ShowAlert("RENDING TEAR — TANKBUSTER !", "interrupt", RENDING_TEAR_ID)
-            end
-        end
-    -- Consume (canal 100 énergie) — durée 10s
-    elseif d == 10 then
-        return function() ShowAlert("CONSUME — TUEZ LES ADDS RESTANTS !", "phase", CONSUME_ID) end
-    -- Caustic Phlegm (DoT raid) — durée 12s
-    elseif d == 12 then
+    if d == 12 then
         return function() ShowAlert("CAUSTIC PHLEGM — DOT RAID !", "global", CAUSTIC_PHLEGM_ID) end
-    -- Corrupted Devastation Phase 2 — durée à confirmer
-    elseif d == 5 or d == 6 then
-        return function() ShowAlert("CORRUPTED DEVASTATION — ÉVITEZ LA LIGNE !", "phase", CORRUPTED_DEV_ID) end
     end
     return nil
 end
@@ -182,11 +212,10 @@ local function OnTimelineStateChanged(eventID)
     end
 end
 
--- ─── UNIT_AURA : auras privées ───────────────────────────────────────────────
+-- ─── UNIT_AURA : Dissonance (mauvais realm) ──────────────────────────────────
 local function OnUnitAura(unit)
     if unit ~= "player" then return end
 
-    -- Dissonance (Mythic) — tu es dans le mauvais realm
     local dissonance = C_UnitAuras.GetPlayerAuraBySpellID(DISSONANCE_ID)
     if dissonance and not trackedAuras.dissonance then
         trackedAuras.dissonance = true
@@ -198,11 +227,12 @@ end
 
 -- ─── Reset ────────────────────────────────────────────────────────────────────
 local function ResetState()
-    inFight       = false
-    activeTimers  = {}
-    trackedAuras  = {}
-    miasmaCount   = 0
-    soakCount     = 0
+    inFight          = false
+    activeTimers     = {}
+    trackedAuras     = {}
+    miasmaCount      = 0
+    soakCount        = 0
+    fearCryCooldown  = false
     UnregisterCLEU()
 end
 
@@ -251,15 +281,20 @@ frame:SetScript("OnEvent", function(_, event, ...)
 
     elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
         if not inFight then return end
-        local _, subevent, _, _, _, _, _, _, destName, _, _, spellId = CombatLogGetCurrentEventInfo()
+        local _, subevent, _, _, srcName, _, _, _, destName, _, _, spellId = CombatLogGetCurrentEventInfo()
 
         if subevent == "SPELL_AURA_APPLIED" then
-            if spellId == CONSUMING_MIASMA_ID then
-                OnMiasmaApplied(destName)
-            elseif spellId == RIFT_MADNESS_ID then
-                OnRiftMadnessApplied(destName)
-            elseif spellId == ALNDUST_UPHEAVAL_ID then
-                OnUpheavalApplied(destName)
+            if    spellId == CONSUMING_MIASMA_ID then OnMiasmaApplied(destName)
+            elseif spellId == RIFT_MADNESS_ID    then OnRiftMadnessApplied(destName)
+            elseif spellId == ALNDUST_UPHEAVAL_ID then OnUpheavalApplied(destName)
+            elseif spellId == RENDING_TEAR_ID    then OnRendingTearApplied(destName)
+            end
+
+        elseif subevent == "SPELL_CAST_START" then
+            if    spellId == FEARSOME_CRY_ID  then OnFearsomeCryCast()
+            elseif spellId == CONSUME_ID       then OnConsumeCast()
+            elseif spellId == CORRUPTED_DEV_ID then OnCorruptedDevCast()
+            elseif spellId == RAVENOUS_DIVE_ID then OnRavenousDiveCast()
             end
         end
     end
