@@ -316,7 +316,7 @@ function M:CreateOptions()
     if self.CreatePreviewText then self:CreatePreviewText() end
 
     local frame = CreateFrame("Frame", nil, M.content)
-    frame:SetAllPoints()
+    frame:SetAllPoints(M.content)
 
     -- Barre d'onglets
     local TAB_DEFS = {
@@ -357,7 +357,8 @@ function M:CreateOptions()
         local sf = CreateFrame("Frame", nil, frame)
         sf:SetPoint("TOPLEFT",     frame, "TOPLEFT",     0, -48)
         sf:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0,   0)
-        tabFrames[def.key] = def.build(sf)
+        def.build(sf)              -- construit le contenu à l'intérieur de sf
+        tabFrames[def.key] = sf   -- on stocke sf, pas le frame interne
         sf:Hide()
     end
 
@@ -377,7 +378,7 @@ end
 
 function M:CreateImperatorPanel()
     local frame = CreateFrame("Frame", nil, M.content)
-    frame:SetAllPoints()
+    frame:SetAllPoints(M.content)
 
     SectionHeader(frame, M.config.gridBossName or "Imperator Averzian", -28)
 
@@ -469,7 +470,7 @@ end
 
 function M:CreateVorasiusPanel()
     local frame = CreateFrame("Frame", nil, M.content)
-    frame:SetAllPoints()
+    frame:SetAllPoints(M.content)
 
     SectionHeader(frame, "Vorasius — Mythique", -28)
 
@@ -477,9 +478,10 @@ function M:CreateVorasiusPanel()
         "Mode Mythique  (3 explosions/mur + flaques au sol)",
         "vorasiusMythicMode", "TOPLEFT", frame, "TOPLEFT", 0, -72)
 
-    -- Sélecteur de rôle
+    -- Sélecteur de rôle (global — utilisé par tous les boss)
+    SectionHeader(frame, "Rôle global", -106)
     local roleTitle = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    roleTitle:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -118)
+    roleTitle:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -150)
     roleTitle:SetText("Forcer le rôle  (AUTO = détection auto par spec / rôle de groupe) :")
 
     local ROLES       = { "AUTO", "TANK", "HEALER", "MELEE", "RANGE" }
@@ -488,7 +490,7 @@ function M:CreateVorasiusPanel()
     local prevBtn
 
     local function RefreshRoleButtons()
-        local current = M.config.vorasiusRole or "AUTO"
+        local current = M.config.playerRole or "AUTO"
         for _, btn in ipairs(roleButtons) do
             if btn.roleKey == current then btn:SetAlpha(1.0); btn:LockHighlight()
             else btn:SetAlpha(0.55); btn:UnlockHighlight() end
@@ -499,11 +501,11 @@ function M:CreateVorasiusPanel()
         local btn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
         btn:SetSize(96, 28)
         btn.roleKey = roleKey
-        if i == 1 then btn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -148)
+        if i == 1 then btn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -174)
         else btn:SetPoint("LEFT", prevBtn, "RIGHT", 6, 0) end
         btn:SetText(ROLE_LABELS[roleKey])
         btn:SetScript("OnClick", function()
-            M.config.vorasiusRole = roleKey
+            M.config.playerRole = roleKey
             if M.SaveConfig then M:SaveConfig() end
             RefreshRoleButtons()
         end)
@@ -513,7 +515,7 @@ function M:CreateVorasiusPanel()
 
     -- Info strat
     local infoBox = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    infoBox:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -196)
+    infoBox:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -222)
     infoBox:SetWidth(560)
     infoBox:SetJustifyH("LEFT")
     infoBox:SetSpacing(3)
@@ -527,7 +529,7 @@ function M:CreateVorasiusPanel()
     )
 
     -- Boutons de test
-    SectionHeader(frame, "Test des alertes", -314)
+    SectionHeader(frame, "Test des alertes", -340)
 
     local TEST_BTNS = {
         { arg = "slam",    label = "Shadowclaw Slam" },
@@ -545,7 +547,7 @@ function M:CreateVorasiusPanel()
         local row = math.floor((i - 1) / 4)
         local btn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
         btn:SetSize(124, 26)
-        if col == 0 then btn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -352 - row * 34)
+        if col == 0 then btn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -378 - row * 34)
         else btn:SetPoint("LEFT", prevTest, "RIGHT", 6, 0) end
         btn:SetText(t.label)
         btn:SetScript("OnClick", function()
@@ -568,7 +570,7 @@ end
 
 function M:CreateCrownPanel()
     local frame = CreateFrame("Frame", nil, M.content)
-    frame:SetAllPoints()
+    frame:SetAllPoints(M.content)
     SectionHeader(frame, M.config.crownBossName or "Couronne du cosmos", -28)
     local info = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     info:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -72)

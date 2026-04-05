@@ -13,16 +13,14 @@ local stage = 1       -- 1, 2, 3
 local dur4Count = 0   -- stage 1 pull : dur=4 → Tremor(1) → DarkHand(2) → RavenousAbyss(3)
 local frame = CreateFrame("Frame")
 
-local function ShowAlert(msg, soundType)
-    M:ShowText(msg, soundType)
+local function ShowAlert(msg, soundType, spellID)
+    M:ShowText(msg, soundType, spellID)
     if M.PlayAlertSound then M:PlayAlertSound(soundType or "global") end
-    C_Timer.After(M.config and M.config.textDuration or 4, function() M:HideText() end)
 end
 
-local function ShowPrivate(msg)
-    M:ShowPrivateText(msg)
+local function ShowPrivate(msg, spellID)
+    M:ShowPrivateText(msg, spellID)
     if M.PlayAlertSound then M:PlayAlertSound("private") end
-    C_Timer.After(M.config and M.config.privateTextDuration or 5, function() M:HidePrivateText() end)
 end
 
 -- ============================================================
@@ -59,6 +57,14 @@ end
 --   8      → Aspect of the End (refresh du cast à 21s) ← BigWigs confirmé
 -- ============================================================
 
+-- SpellIDs connus pour les icônes (auras privées — les IDs timeline ne sont pas disponibles)
+local SPELL_SILVERSTRIKE  = 1233602
+local SPELL_GRASP         = 1232470
+local SPELL_NULL_CORONA   = 1233865
+local SPELL_RAVENOUS      = 1243753
+local SPELL_MARK          = 1237623
+local SPELL_ASPECT        = 1239111
+
 local function BuildTimerCallback(d, dExact)
     if stage == 1 then
         if d == 25 then
@@ -66,13 +72,13 @@ local function BuildTimerCallback(d, dExact)
 
         -- Pull timers Héroïque
         elseif d == 24 then
-            return function() ShowAlert("SILVERSTRIKE ARROW — VISE UN SENTINEL !") end
+            return function() ShowAlert("SILVERSTRIKE ARROW — VISE UN SENTINEL !", nil, SPELL_SILVERSTRIKE) end
         elseif d == 5 then
-            return function() ShowAlert("GRASP OF EMPTINESS — ORIENTEZ L'OBÉLISQUE !") end
+            return function() ShowAlert("GRASP OF EMPTINESS — ORIENTEZ L'OBÉLISQUE !", nil, SPELL_GRASP) end
         elseif d == 12 or d == 60 then
             return function() ShowAlert("VOID EXPULSION — RANGED BAITEZ !", "soak") end
         elseif d == 2 then
-            return function() ShowAlert("NULL CORONA — SOIN À FOND !") end
+            return function() ShowAlert("NULL CORONA — SOIN À FOND !", nil, SPELL_NULL_CORONA) end
         elseif dExact < 4.1 and d == 4 then
             dur4Count = dur4Count + 1
             if dur4Count == 1 then
@@ -80,15 +86,15 @@ local function BuildTimerCallback(d, dExact)
             elseif dur4Count == 2 then
                 return function() ShowAlert("DARK HAND — INTERROMPRE !", "interrupt") end
             elseif dur4Count == 3 then
-                return function() ShowAlert("RAVENOUS ABYSS — SORTEZ DE LA ZONE !") end
+                return function() ShowAlert("RAVENOUS ABYSS — SORTEZ DE LA ZONE !", nil, SPELL_RAVENOUS) end
             end
 
         -- Répétition stage 1
         elseif d == 21 or d == 23 then
-            return function() ShowAlert("SILVERSTRIKE ARROW — VISE UN SENTINEL !") end
+            return function() ShowAlert("SILVERSTRIKE ARROW — VISE UN SENTINEL !", nil, SPELL_SILVERSTRIKE) end
         elseif dExact >= 19.3 and dExact <= 19.7 then
             -- 19.5 = Ravenous Abyss répétitif — arrondirait à 20 sans ce check précis
-            return function() ShowAlert("RAVENOUS ABYSS — SORTEZ DE LA ZONE !") end
+            return function() ShowAlert("RAVENOUS ABYSS — SORTEZ DE LA ZONE !", nil, SPELL_RAVENOUS) end
         elseif d == 20 then
             return function() ShowAlert("INTERRUPTING TREMOR — STOP LES SORTS !", "interrupt") end
         elseif d == 26 then
@@ -99,9 +105,9 @@ local function BuildTimerCallback(d, dExact)
 
     elseif stage == 2 then
         if d == 11 or d == 13 then
-            return function() ShowAlert("NULL CORONA — SOIN À FOND !") end
+            return function() ShowAlert("NULL CORONA — SOIN À FOND !", nil, SPELL_NULL_CORONA) end
         elseif d == 19 or d == 21 then
-            return function() ShowAlert("RANGER CAPTAIN'S MARK — DISPERSE !", "soak") end
+            return function() ShowAlert("RANGER CAPTAIN'S MARK — DISPERSE !", "soak", SPELL_MARK) end
         elseif d == 14 or d == 16 then
             return function() ShowAlert("VOID EXPULSION — RANGED BAITEZ !", "soak") end
         elseif d == 22 or d == 24 then
@@ -116,11 +122,11 @@ local function BuildTimerCallback(d, dExact)
         if d == 60 or d == 59 then
             return function() ShowAlert("DEVOURING COSMOS — PRENEZ LES PLUMES !", "phase") end
         elseif d == 30 or d == 29 then
-            return function() ShowAlert("NULL CORONA — SOIN À FOND !") end
+            return function() ShowAlert("NULL CORONA — SOIN À FOND !", nil, SPELL_NULL_CORONA) end
         elseif d == 39 or d == 21 then
-            return function() ShowAlert("ASPECT OF THE END — RANGED > MÊLÉE > TANK !", "phase") end
+            return function() ShowAlert("ASPECT OF THE END — RANGED > MÊLÉE > TANK !", "phase", SPELL_ASPECT) end
         elseif d == 9 or d == 8 then
-            return function() ShowAlert("ASPECT OF THE END — RANGED > MÊLÉE > TANK !", "phase") end
+            return function() ShowAlert("ASPECT OF THE END — RANGED > MÊLÉE > TANK !", "phase", SPELL_ASPECT) end
         end
     end
 
@@ -179,7 +185,7 @@ local function OnUnitAura(unit)
         local aura = C_UnitAuras.GetPlayerAuraBySpellID(spellID)
         if aura and not trackedAuras[key] then
             trackedAuras[key] = true
-            ShowPrivate(msg)
+            ShowPrivate(msg, spellID)
         elseif not aura then
             trackedAuras[key] = nil
         end

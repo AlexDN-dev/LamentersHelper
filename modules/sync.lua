@@ -23,7 +23,9 @@ end
 
 -- ─── Initialisation ───────────────────────────────────────────────────────────
 function M:InitSync()
-    CURRENT_VERSION = GetAddOnMetadata(addonName, "Version") or "0.1"
+    CURRENT_VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata(addonName, "Version"))
+                   or GetAddOnMetadata and GetAddOnMetadata(addonName, "Version")
+                   or "0.1"
     C_ChatInfo.RegisterAddonMessagePrefix(PREFIX)
     self.frame:RegisterEvent("CHAT_MSG_ADDON")
 end
@@ -53,41 +55,40 @@ end
 
 -- ─── Lancement du check (RL / assist seulement) ───────────────────────────────
 function M:StartVersionCheck()
-    if not (UnitIsGroupLeader("player") or UnitIsRaidOfficer("player")) then
+    if not (UnitIsGroupLeader("player") or UnitIsRaidOfficer("player") or not IsInGroup()) then
         return false, "not_privileged"
-    end
-    if not IsInGroup() then
-        return false, "not_in_group"
     end
 
     -- Réinitialise les résultats
     M.syncResults = {}
 
-    -- Pré-remplit tous les membres comme "manquants"
-    local groupType = IsInRaid() and "raid" or "party"
-    local count     = GetNumGroupMembers()
-    for i = 1, count do
-        local unit = groupType .. i
-        local name = UnitName(unit)
-        if name and name ~= UnitName("player") then
-            M.syncResults[name] = { version = nil, status = "missing" }
-        end
-    end
-
-    -- S'ajoute soi-même directement (on ne reçoit pas son propre message sur certaines versions)
+    -- Ajoute soi-même directement
     M.syncResults[UnitName("player")] = { version = CURRENT_VERSION, status = "ok" }
 
-    -- Envoie la demande
-    local channel = IsInRaid() and "RAID" or "PARTY"
-    C_ChatInfo.SendAddonMessage(PREFIX, "VER_REQ", channel)
+    if IsInGroup() then
+        -- Pré-remplit tous les membres comme "manquants"
+        local groupType = IsInRaid() and "raid" or "party"
+        local count     = GetNumGroupMembers()
+        for i = 1, count do
+            local unit = groupType .. i
+            local name = UnitName(unit)
+            if name and name ~= UnitName("player") then
+                M.syncResults[name] = { version = nil, status = "missing" }
+            end
+        end
+
+        -- Envoie la demande au groupe
+        local channel = IsInRaid() and "RAID" or "PARTY"
+        C_ChatInfo.SendAddonMessage(PREFIX, "VER_REQ", channel)
+
+        -- Après le timeout → dernier refresh pour afficher les non-répondants
+        C_Timer.After(CHECK_TIMEOUT, function()
+            if M.OnSyncUpdate then M:OnSyncUpdate() end
+        end)
+    end
 
     -- Notifie l'UI immédiatement
     if M.OnSyncUpdate then M:OnSyncUpdate() end
-
-    -- Après le timeout → dernier refresh pour afficher les non-répondants
-    C_Timer.After(CHECK_TIMEOUT, function()
-        if M.OnSyncUpdate then M:OnSyncUpdate() end
-    end)
 
     return true
 end

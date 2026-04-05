@@ -39,8 +39,8 @@ menu:SetBackdrop({
 menu:SetBackdropColor(0.1, 0.1, 0.1, 0.8)
 
 local content = CreateFrame("Frame", nil, panel)
-content:SetSize(600, 500)
-content:SetPoint("RIGHT", -16, 0)
+content:SetPoint("TOPLEFT",     menu, "TOPRIGHT",    12,  0)
+content:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -16, 0)
 
 local bossButtons = {
     { key = "imperator", label = "Imperator" },
@@ -78,6 +78,8 @@ local function ShowSection(sectionName)
     if not M[p.frameKey] then
         M[p.frameKey] = M[p.createFn](M)
     end
+    -- Hide avant Show garantit la transition hidden→shown et force OnShow à se déclencher
+    M[p.frameKey]:Hide()
     M[p.frameKey]:Show()
 end
 

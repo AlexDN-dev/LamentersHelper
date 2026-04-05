@@ -45,8 +45,10 @@ local defaults = {
     debugEncounter = false,
     soundEnabled   = true,
 
+    -- Rôle global (tous les boss)
+    playerRole         = "AUTO",   -- AUTO / TANK / HEALER / MELEE / RANGE
+
     -- Vorasius
-    vorasiusRole       = "AUTO",   -- AUTO / TANK / HEALER / MELEE / RANGE
     vorasiusMythicMode = true,     -- 3 explosions par mur + flaques
 
     -- Imperator — Rotation de dispel (Void Marked)
@@ -60,6 +62,11 @@ M.config = {}
 local function EnsureDatabase()
     if type(LamentersHelperDB) ~= "table" then
         LamentersHelperDB = {}
+    end
+    -- Migration vorasiusRole → playerRole (v1.x → v2.0)
+    if LamentersHelperDB.vorasiusRole ~= nil and LamentersHelperDB.playerRole == nil then
+        LamentersHelperDB.playerRole = LamentersHelperDB.vorasiusRole
+        LamentersHelperDB.vorasiusRole = nil
     end
     -- Initialise les clés manquantes (deep-copy des tables)
     for key, value in pairs(defaults) do

@@ -11,17 +11,19 @@ local trackedAuras = {}
 local activeTimers = {}
 local frame = CreateFrame("Frame")
 
-local function ShowAlert(msg, soundType)
-    M:ShowText(msg, soundType)
+local function ShowAlert(msg, soundType, spellID)
+    M:ShowText(msg, soundType, spellID)
     if M.PlayAlertSound then M:PlayAlertSound(soundType or "global") end
-    C_Timer.After(M.config and M.config.textDuration or 4, function() M:HideText() end)
 end
 
-local function ShowPrivate(msg)
-    M:ShowPrivateText(msg)
+local function ShowPrivate(msg, spellID)
+    M:ShowPrivateText(msg, spellID)
     if M.PlayAlertSound then M:PlayAlertSound("private") end
-    C_Timer.After(M.config and M.config.privateTextDuration or 5, function() M:HidePrivateText() end)
 end
+
+-- SpellIDs connus pour les icônes
+local SPELL_EXEC   = 1248985
+local SPELL_BLIND  = 1258514
 
 -- Durées BigWigs Vanguard — Héroïque (TimersHeroic) + Mythique (TimersMythic) :
 --   10       → Sacred Toll (Héroïque pull ; Mythique: 20)
@@ -55,7 +57,7 @@ local function BuildTimerCallback(d)
         return function() ShowAlert("DIVINE STORM — ÉVITEZ LES TORNADES !") end
     elseif d == 30 or d == 82 or d == 86 then
         -- 30=Judgement Red(Héroïque/Normal pull), 82=Mythique, 86=Héroïque
-        return function() ShowAlert("EXECUTION SENTENCE — SOAK LES CERCLES !", "soak") end
+        return function() ShowAlert("EXECUTION SENTENCE — SOAK LES CERCLES !", "soak", SPELL_EXEC) end
     elseif d == 35 then
         return function() ShowAlert("AURA OF DEVOTION — BELLAMY SUR LE BORD !", "phase") end
     elseif d == 38 or d == 26 or d == 29 or d == 22 then
@@ -95,18 +97,18 @@ end
 local function OnUnitAura(unit)
     if unit ~= "player" then return end
     -- Auras boss taintées en Midnight (spellId secret) — player seulement
-    local exec = C_UnitAuras.GetPlayerAuraBySpellID(1248985)
+    local exec = C_UnitAuras.GetPlayerAuraBySpellID(SPELL_EXEC)
               or C_UnitAuras.GetPlayerAuraBySpellID(1248994)
     if exec and not trackedAuras.exec then
         trackedAuras.exec = true
-        ShowPrivate("EXECUTION SENTENCE — NE SUPERPOSEZ PAS !")
+        ShowPrivate("EXECUTION SENTENCE — NE SUPERPOSEZ PAS !", SPELL_EXEC)
     elseif not exec then
         trackedAuras.exec = nil
     end
-    local blind = C_UnitAuras.GetPlayerAuraBySpellID(1258514)  -- Blinding Light
+    local blind = C_UnitAuras.GetPlayerAuraBySpellID(SPELL_BLIND)
     if blind and not trackedAuras.blind then
         trackedAuras.blind = true
-        ShowPrivate("BLINDING LIGHT — INTERROMPRE !")
+        ShowPrivate("BLINDING LIGHT — INTERROMPRE !", SPELL_BLIND)
     elseif not blind then
         trackedAuras.blind = nil
     end

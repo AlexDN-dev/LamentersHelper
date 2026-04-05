@@ -13,17 +13,20 @@ local activeTimers = {}  -- eventID → callback
 local ambig45Count = 0   -- compteur pour les 3 abilities à ~45s (cyclent en ordre)
 local frame = CreateFrame("Frame")
 
-local function ShowAlert(msg, soundType)
-    M:ShowText(msg, soundType)
+local function ShowAlert(msg, soundType, spellID)
+    M:ShowText(msg, soundType, spellID)
     if M.PlayAlertSound then M:PlayAlertSound(soundType or "global") end
-    C_Timer.After(M.config and M.config.textDuration or 4, function() M:HideText() end)
 end
 
-local function ShowPrivate(msg)
-    M:ShowPrivateText(msg)
+local function ShowPrivate(msg, spellID)
+    M:ShowPrivateText(msg, spellID)
     if M.PlayAlertSound then M:PlayAlertSound("private") end
-    C_Timer.After(M.config and M.config.privateTextDuration or 5, function() M:HidePrivateText() end)
 end
+
+-- SpellIDs connus pour les icônes
+local SPELL_DESPOTIC   = 1248697
+local SPELL_UMBRAL_B   = 1260030
+local SPELL_DESTAB     = 1271577
 
 -- Durées confirmées BigWigs Salhadaar (TimersOther) :
 --   11           → Void Convergence (pull)
@@ -41,7 +44,7 @@ local function BuildTimerCallback(d, dExact)
     elseif d == 15 then
         return function() ShowAlert("TWISTING OBSCURITY — SOINS RAID !") end
     elseif d == 27 or d == 22 then
-        return function() ShowAlert("DESPOTIC COMMAND — UN JOUEUR CIBLÉ !", "soak") end
+        return function() ShowAlert("DESPOTIC COMMAND — UN JOUEUR CIBLÉ !", "soak", SPELL_DESPOTIC) end
     elseif d == 18 then
         return function() ShowAlert("FRACTURED IMAGE INVOQUÉ — FOCUS L'ADD !") end
     elseif d == 42 or d == 44 then
@@ -55,7 +58,7 @@ local function BuildTimerCallback(d, dExact)
     if dHalf == 46.5 then
         return function() ShowAlert("VOID CONVERGENCE !") end
     elseif dHalf == 46.0 then
-        return function() ShowAlert("DESPOTIC COMMAND — UN JOUEUR CIBLÉ !", "soak") end
+        return function() ShowAlert("DESPOTIC COMMAND — UN JOUEUR CIBLÉ !", "soak", SPELL_DESPOTIC) end
     elseif d == 45 then
         -- Rotation TW → FP → ST
         ambig45Count = ambig45Count + 1
@@ -99,31 +102,31 @@ local DESTAB_ALERT_THRESHOLD = 5
 local function OnUnitAura(unit)
     if unit ~= "player" then return end
 
-    local despotic = C_UnitAuras.GetPlayerAuraBySpellID(1248697)  -- Despotic Command (BigWigs: 1248697)
+    local despotic = C_UnitAuras.GetPlayerAuraBySpellID(SPELL_DESPOTIC)
     if despotic and not despoticActive then
         despoticActive = true
-        ShowPrivate("DESPOTIC COMMAND — BOUGEZ !")
+        ShowPrivate("DESPOTIC COMMAND — BOUGEZ !", SPELL_DESPOTIC)
     elseif not despotic then
         despoticActive = false
     end
 
-    local umbral = C_UnitAuras.GetPlayerAuraBySpellID(1260030)  -- Umbral Beams (BigWigs: 1260030 "underyou")
+    local umbral = C_UnitAuras.GetPlayerAuraBySpellID(SPELL_UMBRAL_B)
     if umbral and not umbralBeamsActive then
         umbralBeamsActive = true
-        ShowPrivate("UMBRAL BEAMS — BOUGEZ !")
+        ShowPrivate("UMBRAL BEAMS — BOUGEZ !", SPELL_UMBRAL_B)
     elseif not umbral then
         umbralBeamsActive = false
     end
 
-    local aura = M.FindAura("player", 1271577, "HARMFUL")  -- Destabilizing Strikes (BigWigs: 1271577)
+    local aura = M.FindAura("player", SPELL_DESTAB, "HARMFUL")
     if aura then
         local stacks = aura.applications or 1
         if stacks ~= destabStacks then
             destabStacks = stacks
             if stacks == 1 then
-                ShowPrivate("DESTABILIZING STRIKES ×1")
+                ShowPrivate("DESTABILIZING STRIKES ×1", SPELL_DESTAB)
             elseif stacks % DESTAB_ALERT_THRESHOLD == 0 then
-                ShowPrivate("DESTABILIZING STRIKES ×" .. stacks .. " — SWAP TANK !")
+                ShowPrivate("DESTABILIZING STRIKES ×" .. stacks .. " — SWAP TANK !", SPELL_DESTAB)
             end
         end
     else

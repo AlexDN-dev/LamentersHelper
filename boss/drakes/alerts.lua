@@ -11,17 +11,19 @@ local trackedAuras = {}
 local activeTimers = {}
 local frame = CreateFrame("Frame")
 
-local function ShowAlert(msg, soundType)
-    M:ShowText(msg, soundType)
+local function ShowAlert(msg, soundType, spellID)
+    M:ShowText(msg, soundType, spellID)
     if M.PlayAlertSound then M:PlayAlertSound(soundType or "global") end
-    C_Timer.After(M.config and M.config.textDuration or 4, function() M:HideText() end)
 end
 
-local function ShowPrivate(msg)
-    M:ShowPrivateText(msg)
+local function ShowPrivate(msg, spellID)
+    M:ShowPrivateText(msg, spellID)
     if M.PlayAlertSound then M:PlayAlertSound("private") end
-    C_Timer.After(M.config and M.config.privateTextDuration or 5, function() M:HidePrivateText() end)
 end
+
+-- SpellIDs connus pour les icônes
+local SPELL_NULLZONE = 1244672
+local SPELL_DIMINISH = 1270852
 
 -- Durées confirmées BigWigs (Mythic, stage 1 initial pull) :
 --   30           → Nullbeam
@@ -31,7 +33,7 @@ end
 -- Stage 2/3 : durées différentes, activer debugEncounter pour les découvrir
 local function BuildTimerCallback(d)
     if d == 30 then
-        return function() ShowAlert("NULLBEAM — TANK SOAK !", "soak") end
+        return function() ShowAlert("NULLBEAM — TANK SOAK !", "soak", SPELL_NULLZONE) end
     elseif d == 35 then
         return function() ShowAlert("VOID HOWL — GROUPEZ-VOUS !") end
     elseif d == 10 or d == 48 or d == 25 then
@@ -67,18 +69,18 @@ end
 local function OnUnitAura(unit)
     if unit ~= "player" then return end
     -- Auras boss taintées en Midnight (spellId secret) — player seulement
-    local nullzone = C_UnitAuras.GetPlayerAuraBySpellID(1244672)  -- Nullzone (BigWigs: "underyou")
+    local nullzone = C_UnitAuras.GetPlayerAuraBySpellID(SPELL_NULLZONE)
     if nullzone and not trackedAuras.nullzone then
         trackedAuras.nullzone = true
-        ShowPrivate("NULLZONE — BOUGEZ !")
+        ShowPrivate("NULLZONE — BOUGEZ !", SPELL_NULLZONE)
     elseif not nullzone then
         trackedAuras.nullzone = nil
     end
 
-    local diminish = C_UnitAuras.GetPlayerAuraBySpellID(1270852)  -- Diminish
+    local diminish = C_UnitAuras.GetPlayerAuraBySpellID(SPELL_DIMINISH)
     if diminish and not trackedAuras.diminish then
         trackedAuras.diminish = true
-        ShowPrivate("DIMINISH — NE SOAKEZ PLUS GLOOM !")
+        ShowPrivate("DIMINISH — NE SOAKEZ PLUS GLOOM !", SPELL_DIMINISH)
     elseif not diminish then
         trackedAuras.diminish = nil
     end

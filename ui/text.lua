@@ -129,7 +129,7 @@ local function HideChannel(channel)
     channel.displayFrame:Hide()
 end
 
-local function ShowChannel(channel, msg, soundType)
+local function ShowChannel(channel, msg, soundType, spellID)
     if not channel.displayFrame or not channel.displayText then
         return
     end
@@ -137,9 +137,28 @@ local function ShowChannel(channel, msg, soundType)
     UpdateChannelPosition(channel)
     UpdateChannelSize(channel)
 
+    -- Icône de sort inline (|T...|t) si showSpellIcons activé et spellID fourni
+    local prefix = ""
+    if M.config and M.config.showSpellIcons and spellID then
+        local tex
+        -- C_Spell.GetSpellTexture (WoW 10.0+) — retourne fileDataID ou path
+        if C_Spell and C_Spell.GetSpellTexture then
+            tex = C_Spell.GetSpellTexture(spellID)
+        end
+        -- Fallback : C_Spell.GetSpellInfo.iconID (présent depuis WoW 10.0, stable en 12.0)
+        if not tex and C_Spell and C_Spell.GetSpellInfo then
+            local info = C_Spell.GetSpellInfo(spellID)
+            tex = info and info.iconID
+        end
+        if tex then
+            local sz = math.max(M.config[channel.sizeKey] or 24, 16)
+            prefix = "|T" .. tex .. ":" .. sz .. ":" .. sz .. "|t  "
+        end
+    end
+
     local c = ALERT_COLORS[soundType] or ALERT_COLORS["global"]
     channel.displayText:SetTextColor(c[1], c[2], c[3], 1)
-    channel.displayText:SetText(msg)
+    channel.displayText:SetText(prefix .. msg)
     channel.displayFrame:SetAlpha(0)
     channel.displayFrame:Show()
     UIFrameFadeIn(channel.displayFrame, 0.05, 0, 1)
@@ -316,24 +335,24 @@ function M:CreatePreviewText()
     self.rlNoteDisplayText = rlNoteChannel.displayText
 end
 
-function M:ShowText(msg, soundType)
+function M:ShowText(msg, soundType, spellID)
     if not self.displayFrame or not self.displayText then
         self:CreatePreviewText()
     end
 
-    ShowChannel(globalChannel, msg, soundType)
+    ShowChannel(globalChannel, msg, soundType, spellID)
 end
 
 function M:HideText()
     HideChannel(globalChannel)
 end
 
-function M:ShowPrivateText(msg)
+function M:ShowPrivateText(msg, spellID)
     if not self.privateDisplayFrame or not self.privateDisplayText then
         self:CreatePreviewText()
     end
 
-    ShowChannel(privateChannel, msg, "private")
+    ShowChannel(privateChannel, msg, "private", spellID)
 end
 
 function M:HidePrivateText()
@@ -341,7 +360,7 @@ function M:HidePrivateText()
 end
 
 -- Alerte dispel : même canal que private mais THICKOUTLINE + magenta + pop agressif
-function M:ShowDispelText(msg)
+function M:ShowDispelText(msg, spellID)
     if not self.privateDisplayFrame or not self.privateDisplayText then
         self:CreatePreviewText()
     end
@@ -350,7 +369,7 @@ function M:ShowDispelText(msg)
     local size = M.config and M.config[privateChannel.sizeKey] or 28
     privateChannel.displayText:SetFont("Fonts\\FRIZQT__.TTF", size, "THICKOUTLINE")
 
-    ShowChannel(privateChannel, msg, "dispel")
+    ShowChannel(privateChannel, msg, "dispel", spellID)
 
     -- Restaure OUTLINE après la durée de l'alerte
     local duration = (M.config and M.config[privateChannel.durationKey]) or privateChannel.defaultDuration or 5

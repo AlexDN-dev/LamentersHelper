@@ -1,7 +1,9 @@
 local addonName, M = ...
 
 function M:CreateSyncPanel()
-    local CURRENT_VERSION = GetAddOnMetadata(addonName, "Version") or "0.1"
+    local CURRENT_VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata(addonName, "Version"))
+                          or (GetAddOnMetadata and GetAddOnMetadata(addonName, "Version"))
+                          or "0.1"
 
     local frame = CreateFrame("Frame", nil, M.content)
     frame:SetAllPoints()

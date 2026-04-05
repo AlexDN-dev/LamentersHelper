@@ -28,22 +28,19 @@ local cleuRegistered = false
 local frame = CreateFrame("Frame")
 
 -- ─── Helpers alertes ─────────────────────────────────────────────────────────
-local function ShowAlert(msg, soundType)
-    M:ShowText(msg, soundType)
+local function ShowAlert(msg, soundType, spellID)
+    M:ShowText(msg, soundType, spellID)
     if M.PlayAlertSound then M:PlayAlertSound(soundType or "global") end
-    C_Timer.After(M.config and M.config.textDuration or 4, function() M:HideText() end)
 end
 
-local function ShowPrivate(msg)
-    M:ShowPrivateText(msg)
+local function ShowPrivate(msg, spellID)
+    M:ShowPrivateText(msg, spellID)
     if M.PlayAlertSound then M:PlayAlertSound("private") end
-    C_Timer.After(M.config and M.config.privateTextDuration or 5, function() M:HidePrivateText() end)
 end
 
-local function ShowDispel(msg)
-    M:ShowDispelText(msg)
+local function ShowDispel(msg, spellID)
+    M:ShowDispelText(msg, spellID)
     if M.PlayAlertSound then M:PlayAlertSound("dispel") end
-    C_Timer.After(M.config and M.config.privateTextDuration or 5, function() M:HideDispelText() end)
 end
 
 -- ─── CLEU (enregistré uniquement pendant l'encounter pour éviter ADDON_ACTION_FORBIDDEN) ──
@@ -74,11 +71,11 @@ local function OnVoidMarked(destName)
     local myName   = UnitName("player")
 
     -- Alerte globale : tout le monde voit qui est marqué
-    ShowAlert("|cffc080ff[VOID MARKED]|r  " .. destName)
+    ShowAlert("|cffc080ff[VOID MARKED]|r  " .. destName, nil, VOID_MARKED_ID)
 
     -- Alerte dispel uniquement pour le healer assigné (son double + texte gras magenta)
     if myName == assigned then
-        ShowDispel("DISPELL  |cffffff00" .. destName .. "|r  !")
+        ShowDispel("DISPELL  |cffffff00" .. destName .. "|r  !", VOID_MARKED_ID)
     end
 
     if M.config and M.config.debugEncounter then
@@ -130,7 +127,7 @@ local function OnUnitAura(unit)
     local umbral = C_UnitAuras.GetPlayerAuraBySpellID(1249265)  -- Umbral Collapse
     if umbral and not trackedAuras.umbral then
         trackedAuras.umbral = true
-        ShowPrivate("UMBRAL COLLAPSE — ALLEZ AU MARQUEUR !")
+        ShowPrivate("UMBRAL COLLAPSE — ALLEZ AU MARQUEUR !", 1249265)
     elseif not umbral then
         trackedAuras.umbral = nil
     end

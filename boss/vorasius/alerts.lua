@@ -11,22 +11,12 @@ local VOID_BREATH_ID     = 1256855  -- Souffle du Vide (rayon balayant, 15s)
 -- Auras joueur (UNIT_AURA — non-taintées sur "player")
 local BLISTERBURST_AURA  = 1259186  -- Explosion Cuisante : +100% dégâts reçus, 30s
 local SMASHED_AURA       = 1241844  -- Heurtoir : vulnérabilité physique tank (cumulable)
+-- Shadowclaw Slam — pas de spellID direct via timeline (dur=16/136/240)
+local SLAM_SPELL         = 1241844  -- réutilise SMASHED pour l'icône (même sort)
 -- NOTE : l'aura de ciblage (fixate) et le ralentissement des Ectocloques
 --        n'ont pas encore de spell ID confirmé. Activez debugEncounter pour les trouver.
 
--- ─── Specs mêlée par classe (index de spécialisation WoW) ─────────────────────
-local MELEE_SPECS = {
-    WARRIOR     = {[1]=true, [2]=true},           -- Armes, Fureur (3=Protection=tank)
-    PALADIN     = {[3]=true},                      -- Vindicte
-    HUNTER      = {[3]=true},                      -- Survie (1=BM, 2=MM = distance)
-    ROGUE       = {[1]=true, [2]=true, [3]=true},  -- Assassinat, Hors-la-loi, Subtilité
-    DEATHKNIGHT = {[2]=true, [3]=true},            -- Givre, Impie (1=Sang=tank)
-    SHAMAN      = {[2]=true},                      -- Amélioration (1=Élé, 3=Resto)
-    MONK        = {[3]=true},                      -- Marcheur du vent (1=Tank, 2=Heal)
-    DRUID       = {[2]=true},                      -- Farouche (1=Équi, 3=Garden, 4=Resto)
-    DEMONHUNTER = {[1]=true},                      -- Dévastation (2=Vengeance=tank)
-    -- WARRIOR 2=Fureur inclus (souvent en mêlée mais peut être éloigné en Mythique — configurable)
-}
+-- ─── Specs mêlée : défini dans modules/alerts.lua (M:GetRole()) ───────────────
 
 -- ─── État du combat ───────────────────────────────────────────────────────────
 local inFight          = false
@@ -39,39 +29,17 @@ local activeTimers     = {}
 
 local frame = CreateFrame("Frame")
 
--- ─── Détection du rôle joueur ──────────────────────────────────────────────────
--- Priorité : config manuelle > rôle de groupe > spec auto
-local function GetVorasiusRole()
-    local override = M.config and M.config.vorasiusRole
-    if override and override ~= "AUTO" then return override end
-
-    local role = UnitGroupRolesAssigned("player")
-    if role == "TANK"   then return "TANK"   end
-    if role == "HEALER" then return "HEALER" end
-
-    local specIndex = GetSpecialization()
-    if not specIndex then return "RANGE" end
-    local _, classFile = UnitClass("player")
-    if MELEE_SPECS[classFile] and MELEE_SPECS[classFile][specIndex] then
-        return "MELEE"
-    end
-    return "RANGE"
-end
-
--- Exposé pour le panel d'options
-M.GetVorasiusRole = GetVorasiusRole
+-- M:GetRole() défini dans modules/alerts.lua — utilisé directement ci-dessous
 
 -- ─── Affichage ────────────────────────────────────────────────────────────────
-local function ShowAlert(msg, soundType)
-    M:ShowText(msg, soundType)
+local function ShowAlert(msg, soundType, spellID)
+    M:ShowText(msg, soundType, spellID)
     if M.PlayAlertSound then M:PlayAlertSound(soundType or "global") end
-    C_Timer.After(M.config and M.config.textDuration or 4, function() M:HideText() end)
 end
 
-local function ShowPrivate(msg)
-    M:ShowPrivateText(msg)
+local function ShowPrivate(msg, spellID)
+    M:ShowPrivateText(msg, spellID)
     if M.PlayAlertSound then M:PlayAlertSound("private") end
-    C_Timer.After(M.config and M.config.privateTextDuration or 5, function() M:HidePrivateText() end)
 end
 
 -- ─── Timeline callbacks ───────────────────────────────────────────────────────
@@ -92,7 +60,7 @@ local function BuildTimerCallback(d)
             elseif slamCount == 2 then
                 wallMsg = " | MUR #2 — TANK SWAP !"
             end
-            ShowAlert("SHADOWCLAW SLAM — TANK ABSORBE !" .. wallMsg, "soak")
+            ShowAlert("SHADOWCLAW SLAM — TANK ABSORBE !" .. wallMsg, "soak", SLAM_SPELL)
         end
     end
 
@@ -100,7 +68,7 @@ local function BuildTimerCallback(d)
     if d == 57 or d == 123 then
         return function()
             addKillCount = 0  -- Sécurité reset
-            local role   = GetVorasiusRole()
+            local role   = M:GetRole()
             local mythic = M.config and M.config.vorasiusMythicMode
             local kills  = mythic and "3 kills/mur" or "2 kills/mur"
             if role == "MELEE" then
@@ -169,7 +137,7 @@ local function OnCLEU()
     if event == "SPELL_CAST_START" or event == "SPELL_CHANNEL_START" then
         if spellID == VOID_BREATH_ID and not voidBreathActive then
             voidBreathActive = true
-            ShowAlert("SOUFFLE DU VIDE — OBSERVEZ LE DÉPART DU RAYON !", "phase")
+            ShowAlert("SOUFFLE DU VIDE — OBSERVEZ LE DÉPART DU RAYON !", "phase", VOID_BREATH_ID)
             C_Timer.After(16, function() voidBreathActive = false end)
         end
     end
@@ -205,7 +173,7 @@ local function OnUnitAura(unit)
     local blister = C_UnitAuras.GetPlayerAuraBySpellID(BLISTERBURST_AURA)
     if blister and not blistered then
         blistered = true
-        ShowPrivate("BLISTERBURST — +100% DÉGÂTS REÇUS (30s) !")
+        ShowPrivate("BLISTERBURST — +100% DÉGÂTS REÇUS (30s) !", BLISTERBURST_AURA)
     elseif not blister then
         blistered = false
     end
@@ -217,9 +185,9 @@ local function OnUnitAura(unit)
         if stacks ~= smashedStacks then
             smashedStacks = stacks
             if stacks == 1 then
-                ShowPrivate("SMASHED ×1 — SWAP AU PROCHAIN SOAK !")
+                ShowPrivate("SMASHED ×1 — SWAP AU PROCHAIN SOAK !", SMASHED_AURA)
             elseif stacks >= SMASHED_SWAP_AT then
-                ShowPrivate("SMASHED ×" .. stacks .. " — SWAP TANK MAINTENANT !")
+                ShowPrivate("SMASHED ×" .. stacks .. " — SWAP TANK MAINTENANT !", SMASHED_AURA)
             end
         end
     else
@@ -318,7 +286,7 @@ end)
 -- ─── Slash commande de test ───────────────────────────────────────────────────
 SLASH_LHVORASIUSTEST1 = "/lhvoratest"
 SlashCmdList["LHVORASIUSTEST"] = function(arg)
-    local role   = GetVorasiusRole()
+    local role   = M:GetRole()
     local mythic = M.config and M.config.vorasiusMythicMode
     local kills  = mythic and "3 kills/mur" or "2 kills/mur"
 
