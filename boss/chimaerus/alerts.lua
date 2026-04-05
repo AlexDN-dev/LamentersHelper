@@ -144,14 +144,9 @@ local function OnRendingTearApplied(destName)
     local role   = M:GetRole()
 
     if myName == destName then
-        -- Tank actif : tu as le debuff, l'autre tank va taunt
         ShowPrivate("RENDING TEAR SUR TOI — ATTEND LE TAUNT !", RENDING_TEAR_ID)
     elseif role == "TANK" then
-        -- Off-tank : c'est ton tour de taunt
         ShowPrivate("RENDING TEAR — TAUNT " .. destName .. " !", RENDING_TEAR_ID)
-    else
-        -- Reste du raid : info positionnement
-        ShowAlert("RENDING TEAR — FRONTALE SUR " .. destName .. " !", "global", RENDING_TEAR_ID)
     end
 end
 
