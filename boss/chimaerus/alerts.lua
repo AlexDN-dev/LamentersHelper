@@ -26,22 +26,15 @@ local function GetMiasmaRotation()
 end
 
 -- ─── Groupes de soak Alndust Upheaval ────────────────────────────────────────
--- Groupe A (groupes 1&3) et Groupe B (groupes 2&4) alternent à chaque soak
+-- Groupe A = groupes raid 1&3, Groupe B = groupes raid 2&4 — détection automatique
 local soakCount = 0
 
-local function GetSoakGroupA()
-    return (M.config and M.config.chimaeraSoakGroupA) or {}
-end
-
-local function GetSoakGroupB()
-    return (M.config and M.config.chimaeraSoakGroupB) or {}
-end
-
-local function InTable(t, val)
-    for _, v in ipairs(t) do
-        if v == val then return true end
+local function GetPlayerRaidGroup()
+    for i = 1, GetNumGroupMembers() do
+        local name, _, group = GetRaidRosterInfo(i)
+        if name == UnitName("player") then return group end
     end
-    return false
+    return nil
 end
 
 -- ─── Swap pairs Rift Madness ──────────────────────────────────────────────────
@@ -142,29 +135,21 @@ end
 -- ─── Alndust Upheaval : soak par groupe alterné ───────────────────────────────
 local function OnUpheavalApplied(destName)
     soakCount = soakCount + 1
-    local myName = UnitName("player")
-    local groupA = GetSoakGroupA()
-    local groupB = GetSoakGroupB()
-
-    -- Groupe actif ce tour
-    local activeGroup, groupLabel
-    if soakCount % 2 == 1 then
-        activeGroup = groupA
-        groupLabel  = "GROUPE A (1&3)"
-    else
-        activeGroup = groupB
-        groupLabel  = "GROUPE B (2&4)"
-    end
+    local isGroupA  = (soakCount % 2 == 1)
+    local groupLabel = isGroupA and "GROUPE A (1&3)" or "GROUPE B (2&4)"
 
     ShowAlert("|cffffff00[UPHEAVAL]|r  " .. groupLabel .. "  — SOAK !", "soak", ALNDUST_UPHEAVAL_ID)
 
-    if InTable(activeGroup, myName) then
-        ShowPrivate("SOAK  |cffffff00" .. groupLabel .. "|r  — TON TOUR !", ALNDUST_UPHEAVAL_ID)
+    local myGroup = GetPlayerRaidGroup()
+    local myTurn  = myGroup and (isGroupA and (myGroup == 1 or myGroup == 3)
+                                          or (myGroup == 2 or myGroup == 4))
+    if myTurn then
+        ShowPrivate("SOAK — TON TOUR  |cffffff00" .. groupLabel .. "|r  !", ALNDUST_UPHEAVAL_ID)
     end
 
     if M.config and M.config.debugEncounter then
-        print(string.format("|cff00ff00LH Chimaerus|r Upheaval #%d → %s actif (moi=%s, dans groupe=%s)",
-            soakCount, groupLabel, myName, tostring(InTable(activeGroup, myName))))
+        print(string.format("|cff00ff00LH Chimaerus|r Upheaval #%d → %s (monGroupe=%s, monTour=%s)",
+            soakCount, groupLabel, tostring(myGroup), tostring(myTurn)))
     end
 end
 

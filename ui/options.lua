@@ -636,37 +636,49 @@ function M:CreateChimaerUsPanel()
 
     if not isPriv then return frame end
 
-    -- ── Rotation de dispel Consuming Miasma ──────────────────────────────────
-    SectionHeader(frame, "Rotation de dispel — Consuming Miasma", -64)
+    -- ── ScrollFrame ───────────────────────────────────────────────────────────
+    local sf = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
+    sf:SetPoint("TOPLEFT",     frame, "TOPLEFT",     0,   -64)
+    sf:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -28,   8)
 
-    local miasmaInfo = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    miasmaInfo:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -102)
+    local c = CreateFrame("Frame", nil, sf)
+    c:SetSize(580, 600)
+    sf:SetScrollChild(c)
+
+    local y = 0  -- curseur Y dans c
+
+    -- ── Rotation de dispel Consuming Miasma ──────────────────────────────────
+    SectionHeader(c, "Rotation de dispel — Consuming Miasma", y)
+    y = y - 38
+
+    local miasmaInfo = c:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    miasmaInfo:SetPoint("TOPLEFT", c, "TOPLEFT", 0, y)
     miasmaInfo:SetTextColor(0.6, 0.6, 0.6)
     miasmaInfo:SetText("Ordre de dispel du debuff Consuming Miasma (1→2→3→4→1→...)")
+    y = y - 22
 
     local miasmaBoxes = {}
     for i = 1, 4 do
-        local numLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        numLbl:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -122 - (i - 1) * 32)
+        local numLbl = c:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        numLbl:SetPoint("TOPLEFT", c, "TOPLEFT", 0, y)
         numLbl:SetText(tostring(i) .. ".")
         numLbl:SetTextColor(0.72, 0.72, 0.76)
 
-        local eb = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
+        local eb = CreateFrame("EditBox", nil, c, "InputBoxTemplate")
         eb:SetSize(200, 24)
         eb:SetPoint("LEFT", numLbl, "RIGHT", 8, 0)
         eb:SetAutoFocus(false)
         eb:SetMaxLetters(40)
-        local rot = M.config.chimerusMiasmaRotation or {}
-        eb:SetText(rot[i] or "")
         miasmaBoxes[i] = eb
+        y = y - 32
     end
 
-    local saveMiasmaBtn = M.MakeBtn(frame, "Sauvegarder", 130, 26)
-    saveMiasmaBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -258)
-
-    local miasmaFeedback = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    local saveMiasmaBtn = M.MakeBtn(c, "Sauvegarder", 130, 26)
+    saveMiasmaBtn:SetPoint("TOPLEFT", c, "TOPLEFT", 0, y)
+    local miasmaFeedback = c:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     miasmaFeedback:SetPoint("LEFT", saveMiasmaBtn, "RIGHT", 10, 0)
     miasmaFeedback:SetText("")
+    y = y - 40
 
     saveMiasmaBtn:SetScript("OnClick", function()
         local newRot = {}
@@ -680,105 +692,93 @@ function M:CreateChimaerUsPanel()
         C_Timer.After(2, function() miasmaFeedback:SetText("") end)
     end)
 
-    -- ── Groupes de soak Alndust Upheaval ─────────────────────────────────────
-    SectionHeader(frame, "Groupes de soak — Alndust Upheaval", -295)
+    -- ── Groupes de soak — auto-détection ─────────────────────────────────────
+    SectionHeader(c, "Groupes de soak — Alndust Upheaval", y)
+    y = y - 38
 
-    local soakInfo = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    soakInfo:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -333)
+    local soakInfo = c:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    soakInfo:SetPoint("TOPLEFT", c, "TOPLEFT", 0, y)
     soakInfo:SetTextColor(0.6, 0.6, 0.6)
-    soakInfo:SetText("Groupe A = groupes 1&3   |   Groupe B = groupes 2&4   (séparés par des virgules)")
+    soakInfo:SetText("Détection automatique depuis les groupes raid.\nGroupe A = groupes 1 & 3   |   Groupe B = groupes 2 & 4")
+    y = y - 44
 
-    -- Groupe A
-    local lblA = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    lblA:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -355)
-    lblA:SetText("Groupe A :")
-    lblA:SetTextColor(0.72, 0.72, 0.76)
+    local soakStatus = c:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    soakStatus:SetPoint("TOPLEFT", c, "TOPLEFT", 0, y)
+    soakStatus:SetWidth(560)
+    soakStatus:SetJustifyH("LEFT")
+    soakStatus:SetSpacing(2)
+    soakStatus:SetText("|cff888888Rejoignez un raid pour voir les groupes.|r")
+    y = y - 52
 
-    local ebA = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
-    ebA:SetSize(380, 24)
-    ebA:SetPoint("LEFT", lblA, "RIGHT", 8, 0)
-    ebA:SetAutoFocus(false)
-    ebA:SetMaxLetters(200)
+    local refreshBtn = M.MakeBtn(c, "Actualiser", 130, 26)
+    refreshBtn:SetPoint("TOPLEFT", c, "TOPLEFT", 0, y)
+    y = y - 44
 
-    -- Groupe B
-    local lblB = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    lblB:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -387)
-    lblB:SetText("Groupe B :")
-    lblB:SetTextColor(0.72, 0.72, 0.76)
-
-    local ebB = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
-    ebB:SetSize(380, 24)
-    ebB:SetPoint("LEFT", lblB, "RIGHT", 8, 0)
-    ebB:SetAutoFocus(false)
-    ebB:SetMaxLetters(200)
-
-    local saveSoakBtn = M.MakeBtn(frame, "Sauvegarder", 130, 26)
-    saveSoakBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -420)
-
-    local soakFeedback = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    soakFeedback:SetPoint("LEFT", saveSoakBtn, "RIGHT", 10, 0)
-    soakFeedback:SetText("")
-
-    local function ParseNames(str)
-        local t = {}
-        for name in str:gmatch("([^,]+)") do
-            local trimmed = name:match("^%s*(.-)%s*$")
-            if trimmed ~= "" then t[#t + 1] = trimmed end
+    local function RefreshSoakGroups()
+        local numMembers = GetNumGroupMembers()
+        if numMembers == 0 then
+            soakStatus:SetText("|cff888888Pas en raid.|r")
+            return
         end
-        return t
+        local gA, gB = {}, {}
+        for i = 1, numMembers do
+            local name, _, group = GetRaidRosterInfo(i)
+            if name then
+                if group == 1 or group == 3 then gA[#gA+1] = name
+                elseif group == 2 or group == 4 then gB[#gB+1] = name end
+            end
+        end
+        local strA = #gA > 0 and table.concat(gA, ", ") or "—"
+        local strB = #gB > 0 and table.concat(gB, ", ") or "—"
+        soakStatus:SetText(
+            "|cffcc2222Groupe A (1&3) :|r  " .. strA .. "\n" ..
+            "|cffcc2222Groupe B (2&4) :|r  " .. strB
+        )
     end
 
-    local function NamesToString(t)
-        return table.concat(t or {}, ", ")
-    end
-
-    saveSoakBtn:SetScript("OnClick", function()
-        M.config.chimaeraSoakGroupA = ParseNames(ebA:GetText())
-        M.config.chimaeraSoakGroupB = ParseNames(ebB:GetText())
-        if M.SaveConfig then M:SaveConfig() end
-        soakFeedback:SetText("|cff00ff00Sauvegardé !|r")
-        C_Timer.After(2, function() soakFeedback:SetText("") end)
-    end)
+    refreshBtn:SetScript("OnClick", RefreshSoakGroups)
 
     -- ── Rift Madness swap pairs ───────────────────────────────────────────────
-    SectionHeader(frame, "Rift Madness — Pairs de swap", -457)
+    SectionHeader(c, "Rift Madness — Pairs de swap", y)
+    y = y - 38
 
-    local madnessInfo = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    madnessInfo:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -495)
+    local madnessInfo = c:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    madnessInfo:SetPoint("TOPLEFT", c, "TOPLEFT", 0, y)
     madnessInfo:SetTextColor(0.6, 0.6, 0.6)
     madnessInfo:SetText("Un debuff tombe toujours sur un healer. Renseignez son partenaire Reality.")
+    y = y - 28
 
     local pairBoxes = {}
     for i = 1, 3 do
-        local healerLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        healerLbl:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -515 - (i - 1) * 34)
+        local healerLbl = c:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        healerLbl:SetPoint("TOPLEFT", c, "TOPLEFT", 0, y)
         healerLbl:SetText("Healer " .. i .. " :")
         healerLbl:SetTextColor(0.72, 0.72, 0.76)
 
-        local healerBox = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
+        local healerBox = CreateFrame("EditBox", nil, c, "InputBoxTemplate")
         healerBox:SetSize(160, 24)
         healerBox:SetPoint("LEFT", healerLbl, "RIGHT", 8, 0)
         healerBox:SetAutoFocus(false)
         healerBox:SetMaxLetters(40)
 
-        local partnerLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        partnerLbl:SetPoint("LEFT", healerBox, "RIGHT", 12, 0)
-        partnerLbl:SetText("↔")
-        partnerLbl:SetTextColor(R, G, B)
+        local arrow = c:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        arrow:SetPoint("LEFT", healerBox, "RIGHT", 12, 0)
+        arrow:SetText("↔")
+        arrow:SetTextColor(R, G, B)
 
-        local partnerBox = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
+        local partnerBox = CreateFrame("EditBox", nil, c, "InputBoxTemplate")
         partnerBox:SetSize(160, 24)
-        partnerBox:SetPoint("LEFT", partnerLbl, "RIGHT", 8, 0)
+        partnerBox:SetPoint("LEFT", arrow, "RIGHT", 8, 0)
         partnerBox:SetAutoFocus(false)
         partnerBox:SetMaxLetters(40)
 
         pairBoxes[i] = { healer = healerBox, partner = partnerBox }
+        y = y - 34
     end
 
-    local savePairsBtn = M.MakeBtn(frame, "Sauvegarder", 130, 26)
-    savePairsBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -621)
-
-    local pairsFeedback = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    local savePairsBtn = M.MakeBtn(c, "Sauvegarder", 130, 26)
+    savePairsBtn:SetPoint("TOPLEFT", c, "TOPLEFT", 0, y)
+    local pairsFeedback = c:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     pairsFeedback:SetPoint("LEFT", savePairsBtn, "RIGHT", 10, 0)
     pairsFeedback:SetText("")
 
@@ -797,12 +797,12 @@ function M:CreateChimaerUsPanel()
         C_Timer.After(2, function() pairsFeedback:SetText("") end)
     end)
 
+    -- Hauteur dynamique du scroll content
+    c:SetHeight(math.abs(y) + 40)
+
     frame:SetScript("OnShow", function()
         local rot = M.config.chimerusMiasmaRotation or {}
         for i = 1, 4 do miasmaBoxes[i]:SetText(rot[i] or "") end
-
-        ebA:SetText(NamesToString(M.config.chimaeraSoakGroupA))
-        ebB:SetText(NamesToString(M.config.chimaeraSoakGroupB))
 
         local pairs = M.config.chimaeraMadnessPairs or {}
         for i = 1, 3 do
@@ -810,6 +810,8 @@ function M:CreateChimaerUsPanel()
             pairBoxes[i].healer:SetText(p and p.healer or "")
             pairBoxes[i].partner:SetText(p and p.partner or "")
         end
+
+        RefreshSoakGroups()
     end)
 
     return frame
