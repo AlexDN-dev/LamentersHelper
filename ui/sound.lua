@@ -1,34 +1,54 @@
 local addonName, M = ...
 
--- Sons intégrés à WoW — SOUNDKIT est une table globale Blizzard (WoW 7.0+)
--- Note: ALARM_CLOCK_WARNING_1 (12865) n'existe plus dans WoW 12.0 Midnight.
--- Sons confirmés fonctionnels : 12867, 12866, 8960
-local SOUND_DEFS = {
-    -- Alerte de cast standard
-    global    = SOUNDKIT.ALARM_CLOCK_WARNING_3 or 12867,
-    -- Changement de phase / mécanique majeure — tick court
-    phase     = SOUNDKIT.ALARM_CLOCK_WARNING_2 or 12866,
-    -- Interruption requise — son raid le plus urgent/distinct
-    interrupt = SOUNDKIT.RAID_WARNING          or 8960,
-    -- Soak — timing critique
-    soak      = SOUNDKIT.ALARM_CLOCK_WARNING_2 or 12866,
-    -- Alerte personnelle (debuff sur soi)
-    private   = SOUNDKIT.ALARM_CLOCK_WARNING_3 or 12867,
-    -- Dispel urgent — RAID_WARNING joué 2 fois pour forcer l'attention
-    dispel    = SOUNDKIT.RAID_WARNING          or 8960,
+-- ─── Sons vocaux SharedMedia_Causese (chemins directs) ───────────────────────
+local SM = "Interface\\Addons\\SharedMedia_Causese\\sound\\"
+
+local SOUND_FILES = {
+    global    = SM .. "Soon.ogg",
+    phase     = SM .. "Transition.ogg",
+    interrupt = SM .. "Interrupt.ogg",
+    soak      = SM .. "Soak.ogg",
+    private   = SM .. "Targeted.ogg",
+    dispel    = SM .. "Dispell.ogg",
 }
+
+-- Fallback SOUNDKIT si SharedMedia_Causese absent
+local function SoundKitFallback(soundType)
+    local kits = {
+        global    = 12867,  -- ALARM_CLOCK_WARNING_3
+        phase     = 12866,  -- ALARM_CLOCK_WARNING_2
+        interrupt = 8960,   -- RAID_WARNING
+        soak      = 12866,
+        private   = 12867,
+        dispel    = 8960,
+    }
+    PlaySound(kits[soundType] or kits.global, "Master", false)
+end
+
+local smLoaded = nil  -- évalué au premier appel (après PLAYER_LOGIN)
+
+local function PlayType(soundType)
+    if smLoaded == nil then
+        smLoaded = (C_AddOns and C_AddOns.IsAddOnLoaded("SharedMedia_Causese")) or false
+    end
+
+    if smLoaded then
+        PlaySoundFile(SOUND_FILES[soundType] or SOUND_FILES.global, "Master")
+    else
+        SoundKitFallback(soundType)
+    end
+end
 
 -- soundType : "global" | "phase" | "interrupt" | "soak" | "private" | "dispel"
 function M:PlayAlertSound(soundType)
     if not M.config or M.config.soundEnabled == false then return end
 
-    local kit = SOUND_DEFS[soundType] or SOUND_DEFS.global
-    PlaySound(kit, "Master", false)
+    PlayType(soundType)
 
     -- Double ping pour les dispels : 2ème son 0.3s après
     if soundType == "dispel" then
         C_Timer.After(0.3, function()
-            PlaySound(kit, "Master", false)
+            PlayType(soundType)
         end)
     end
 end
