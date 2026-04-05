@@ -37,12 +37,6 @@ local function GetPlayerRaidGroup()
     return nil
 end
 
--- ─── Swap pairs Rift Madness ──────────────────────────────────────────────────
--- Un debuff tombe toujours sur un healer → son partenaire Reality doit le couvrir
-local function GetRiftMadnessPairs()
-    return (M.config and M.config.chimaeraMadnessPairs) or {}
-    -- Format : { {healer="Smiths", partner="Thiriäll"}, ... }
-end
 
 -- ─── État du combat ───────────────────────────────────────────────────────────
 local inFight         = false
@@ -107,28 +101,14 @@ local function OnMiasmaApplied(destName)
     end
 end
 
--- ─── Rift Madness : alerte swap pair ─────────────────────────────────────────
+-- ─── Rift Madness : alerte simple ────────────────────────────────────────────
 local function OnRiftMadnessApplied(destName)
     local myName = UnitName("player")
 
-    -- Alerte globale
     ShowAlert("|cffff8000[RIFT MADNESS]|r  " .. destName .. "  — COUVREZ !", "phase", RIFT_MADNESS_ID)
 
-    -- Alerte privée pour la cible
     if myName == destName then
-        ShowPrivate("RIFT MADNESS SUR TOI — TON PARTENAIRE ARRIVE !", RIFT_MADNESS_ID)
-        return
-    end
-
-    -- Alerte privée pour le partenaire
-    local pairs = GetRiftMadnessPairs()
-    for _, pair in ipairs(pairs) do
-        local isTarget  = (pair.healer == destName or pair.partner == destName)
-        local isPartner = (pair.healer == myName   or pair.partner == myName)
-        if isTarget and isPartner then
-            ShowPrivate("TON PARTENAIRE A RIFT MADNESS — COUVRE " .. destName .. " !", RIFT_MADNESS_ID)
-            return
-        end
+        ShowPrivate("RIFT MADNESS — UN JOUEUR DE L'AUTRE REALM VIENT SUR TOI !", RIFT_MADNESS_ID)
     end
 end
 

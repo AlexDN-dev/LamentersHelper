@@ -738,64 +738,21 @@ function M:CreateChimaerUsPanel()
 
     refreshBtn:SetScript("OnClick", RefreshSoakGroups)
 
-    -- ── Rift Madness swap pairs ───────────────────────────────────────────────
-    SectionHeader(c, "Rift Madness — Pairs de swap", y)
+    -- ── Rift Madness — info ───────────────────────────────────────────────────
+    SectionHeader(c, "Rift Madness", y)
     y = y - 38
 
     local madnessInfo = c:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     madnessInfo:SetPoint("TOPLEFT", c, "TOPLEFT", 0, y)
     madnessInfo:SetTextColor(0.6, 0.6, 0.6)
-    madnessInfo:SetText("Un debuff tombe toujours sur un healer. Renseignez son partenaire Reality.")
-    y = y - 28
-
-    local pairBoxes = {}
-    for i = 1, 3 do
-        local healerLbl = c:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        healerLbl:SetPoint("TOPLEFT", c, "TOPLEFT", 0, y)
-        healerLbl:SetText("Healer " .. i .. " :")
-        healerLbl:SetTextColor(0.72, 0.72, 0.76)
-
-        local healerBox = CreateFrame("EditBox", nil, c, "InputBoxTemplate")
-        healerBox:SetSize(160, 24)
-        healerBox:SetPoint("LEFT", healerLbl, "RIGHT", 8, 0)
-        healerBox:SetAutoFocus(false)
-        healerBox:SetMaxLetters(40)
-
-        local arrow = c:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        arrow:SetPoint("LEFT", healerBox, "RIGHT", 12, 0)
-        arrow:SetText("↔")
-        arrow:SetTextColor(R, G, B)
-
-        local partnerBox = CreateFrame("EditBox", nil, c, "InputBoxTemplate")
-        partnerBox:SetSize(160, 24)
-        partnerBox:SetPoint("LEFT", arrow, "RIGHT", 8, 0)
-        partnerBox:SetAutoFocus(false)
-        partnerBox:SetMaxLetters(40)
-
-        pairBoxes[i] = { healer = healerBox, partner = partnerBox }
-        y = y - 34
-    end
-
-    local savePairsBtn = M.MakeBtn(c, "Sauvegarder", 130, 26)
-    savePairsBtn:SetPoint("TOPLEFT", c, "TOPLEFT", 0, y)
-    local pairsFeedback = c:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    pairsFeedback:SetPoint("LEFT", savePairsBtn, "RIGHT", 10, 0)
-    pairsFeedback:SetText("")
-
-    savePairsBtn:SetScript("OnClick", function()
-        local newPairs = {}
-        for i = 1, 3 do
-            local h = pairBoxes[i].healer:GetText():match("^%s*(.-)%s*$")
-            local p = pairBoxes[i].partner:GetText():match("^%s*(.-)%s*$")
-            if h ~= "" and p ~= "" then
-                newPairs[#newPairs + 1] = { healer = h, partner = p }
-            end
-        end
-        M.config.chimaeraMadnessPairs = newPairs
-        if M.SaveConfig then M:SaveConfig() end
-        pairsFeedback:SetText("|cff00ff00Sauvegardé !|r")
-        C_Timer.After(2, function() pairsFeedback:SetText("") end)
-    end)
+    madnessInfo:SetWidth(560)
+    madnessInfo:SetJustifyH("LEFT")
+    madnessInfo:SetText(
+        "Détection automatique.\n" ..
+        "Quand un joueur reçoit le debuff, tout le raid est alerté.\n" ..
+        "La personne ciblée reçoit une alerte privée pour se préparer."
+    )
+    y = y - 52
 
     -- Hauteur dynamique du scroll content
     c:SetHeight(math.abs(y) + 40)
@@ -803,14 +760,6 @@ function M:CreateChimaerUsPanel()
     frame:SetScript("OnShow", function()
         local rot = M.config.chimerusMiasmaRotation or {}
         for i = 1, 4 do miasmaBoxes[i]:SetText(rot[i] or "") end
-
-        local pairs = M.config.chimaeraMadnessPairs or {}
-        for i = 1, 3 do
-            local p = pairs[i]
-            pairBoxes[i].healer:SetText(p and p.healer or "")
-            pairBoxes[i].partner:SetText(p and p.partner or "")
-        end
-
         RefreshSoakGroups()
     end)
 
