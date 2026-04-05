@@ -12,22 +12,21 @@ function M:CreateSyncPanel()
     local title = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
     title:SetPoint("TOPLEFT", 24, -28)
     title:SetText("Verification de l'addon")
+    title:SetTextColor(1, 1, 1)
 
     local divider = frame:CreateTexture(nil, "ARTWORK")
-    divider:SetColorTexture(1, 1, 1, 0.12)
+    divider:SetColorTexture(0.78, 0.07, 0.07, 0.40)
     divider:SetHeight(1)
     divider:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -8)
     divider:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -24, -67)
 
     local versionLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     versionLabel:SetPoint("TOPLEFT", 24, -82)
-    versionLabel:SetText("|cffaaaaaa Votre version :|r  |cffffff00" .. CURRENT_VERSION .. "|r")
+    versionLabel:SetText("|cff888888 Votre version :|r  |cffdddddd" .. CURRENT_VERSION .. "|r")
 
     -- ─── Bouton ───────────────────────────────────────────────────────────────
-    local checkBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-    checkBtn:SetSize(190, 28)
+    local checkBtn = M.MakeBtn(frame, "Lancer la verification", 190, 28)
     checkBtn:SetPoint("TOPLEFT", 24, -112)
-    checkBtn:SetText("Lancer la verification")
 
     local statusMsg = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     statusMsg:SetPoint("LEFT", checkBtn, "RIGHT", 12, 0)
@@ -98,7 +97,7 @@ function M:CreateSyncPanel()
                     suffix = "  v" .. (entry.data.version or "?")
                 elseif entry.data.status == "outdated" then
                     icon   = "[!]"
-                    color  = "|cffffff00"
+                    color  = "|cffff8800"
                     suffix = "  v" .. (entry.data.version or "?") .. "  (obsolete)"
                 else
                     icon   = "[x]"

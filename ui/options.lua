@@ -1,5 +1,7 @@
 local addonName, M = ...
 
+local R, G, B = 0.78, 0.07, 0.07    -- rouge guilde
+
 local RL_NOTE_PLAYER = "Thiri\195\163ll"
 
 -- ─── Helpers UI ──────────────────────────────────────────────────────────────
@@ -13,7 +15,7 @@ local function SectionHeader(parent, text, offsetY)
     title:SetPoint("TOPLEFT", 0, offsetY)
     title:SetText(text)
     local line = parent:CreateTexture(nil, "ARTWORK")
-    line:SetColorTexture(1, 1, 1, 0.12)
+    line:SetColorTexture(R, G, B, 0.40)
     line:SetHeight(1)
     line:SetPoint("TOPLEFT",  title, "BOTTOMLEFT",  0, -6)
     line:SetPoint("TOPRIGHT", parent, "TOPRIGHT",   0, offsetY - 29)
@@ -46,6 +48,10 @@ local function MakeCheck(parent, label, configKey, posPoint, posRelFrame, posRel
     local lbl = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     lbl:SetPoint("LEFT", cb, "RIGHT", 4, 0)
     lbl:SetText(label)
+    lbl:SetTextColor(0.82, 0.82, 0.85)
+    -- Recolore le checkmark en rouge guilde
+    local ct = cb:GetCheckedTexture()
+    if ct then ct:SetVertexColor(R, G, B) end
     cb:SetScript("OnClick", function(self)
         M.config[configKey] = self:GetChecked() and true or false
         if M.SaveConfig then M:SaveConfig() end
@@ -62,10 +68,8 @@ local function BuildAffichageTab(parent)
 
     SectionHeader(f, "Position des textes", -8)
 
-    local toggleBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    toggleBtn:SetSize(200, 28)
+    local toggleBtn = M.MakeBtn(f, "Afficher les ancres", 200, 28)
     toggleBtn:SetPoint("TOPLEFT", 0, -42)
-    toggleBtn:SetText("Afficher les ancres")
 
     local anchorsVisible = false
     local sliders = {}
@@ -164,14 +168,12 @@ local function BuildSonsTab(parent)
     for i, t in ipairs(SOUND_TESTS) do
         local col = (i - 1) % 3
         local row = math.floor((i - 1) / 3)
-        local btn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-        btn:SetSize(130, 28)
+        local btn = M.MakeBtn(f, t.label, 130, 28)
         if col == 0 then
             btn:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -126 - row * 36)
         else
             btn:SetPoint("LEFT", prev, "RIGHT", 8, 0)
         end
-        btn:SetText(t.label)
         btn:SetScript("OnClick", function()
             if M.PlayAlertSound then M:PlayAlertSound(t.type) end
         end)
@@ -181,7 +183,7 @@ local function BuildSonsTab(parent)
     local note = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     note:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -210)
     note:SetTextColor(0.6, 0.6, 0.6)
-    note:SetText("Sons issus de SOUNDKIT (WoW natif) — Dispel joue 2x pour maximiser l'attention.")
+    note:SetText("Sons issus de SharedMedia_Causese (vocaux) — fallback SOUNDKIT si addon absent.")
 
     f:SetScript("OnShow", function()
         soundCheck:SetChecked(M.config.soundEnabled)
@@ -217,10 +219,8 @@ local function BuildProfilsTab(parent)
         namePlaceholder:SetShown(self:GetText() == "")
     end)
 
-    local saveBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-    saveBtn:SetSize(100, 26)
+    local saveBtn = M.MakeBtn(f, "Sauvegarder", 100, 26)
     saveBtn:SetPoint("LEFT", nameBox, "RIGHT", 8, 0)
-    saveBtn:SetText("Sauvegarder")
 
     local feedback = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     feedback:SetPoint("LEFT", saveBtn, "RIGHT", 10, 0)
@@ -238,15 +238,12 @@ local function BuildProfilsTab(parent)
         row.label:SetPoint("TOPLEFT", f, "TOPLEFT", 4, yOff)
         row.label:SetWidth(240)
 
-        row.loadBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-        row.loadBtn:SetSize(70, 22)
+        row.loadBtn = M.MakeBtn(f, "Charger", 70, 22)
         row.loadBtn:SetPoint("LEFT", f, "TOPLEFT", 260, yOff + 1)
-        row.loadBtn:SetText("Charger")
 
-        row.delBtn = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
-        row.delBtn:SetSize(70, 22)
+        row.delBtn = M.MakeBtn(f, "Suppr", 70, 22)
         row.delBtn:SetPoint("LEFT", row.loadBtn, "RIGHT", 6, 0)
-        row.delBtn:SetText("|cffff4444Suppr|r")
+        row.delBtn._txt:SetTextColor(1, 0.28, 0.28)
 
         row.frame = f   -- back-ref pour rafraîchir
         row.label:Hide()
@@ -267,7 +264,8 @@ local function BuildProfilsTab(parent)
         for i, row in ipairs(profileRows) do
             local name = profiles[i]
             if name then
-                row.label:SetText("|cffffff00" .. name .. "|r")
+                row.label:SetText(name)
+                row.label:SetTextColor(0.88, 0.88, 0.90)
                 row.label:Show()
                 row.loadBtn:Show()
                 row.delBtn:Show()
@@ -310,6 +308,73 @@ local function BuildProfilsTab(parent)
     return f
 end
 
+-- ─── Onglet : Rôle ───────────────────────────────────────────────────────────
+
+local function BuildRoleTab(parent)
+    local f = CreateFrame("Frame", nil, parent)
+    f:SetAllPoints()
+
+    SectionHeader(f, "Rôle global", -8)
+
+    local desc = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    desc:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -46)
+    desc:SetText("Forcer le rôle  (AUTO = détection auto par spec / rôle de groupe) :")
+    desc:SetTextColor(0.72, 0.72, 0.76)
+
+    local ROLES       = { "AUTO", "TANK", "HEALER", "MELEE", "RANGE" }
+    local ROLE_LABELS = { AUTO="AUTO", TANK="Tank", HEALER="Healer", MELEE="Mêlée", RANGE="Distance" }
+    local roleButtons = {}
+    local prevBtn
+
+    local function RefreshRoleButtons()
+        local current = M.config.playerRole or "AUTO"
+        for _, btn in ipairs(roleButtons) do
+            if btn.roleKey == current then
+                btn._bg:SetColorTexture(R, G, B, 0.65)
+                btn._txt:SetTextColor(1, 1, 1)
+            else
+                btn._bg:SetColorTexture(0.11, 0.11, 0.14, 1)
+                btn._txt:SetTextColor(0.65, 0.65, 0.68)
+            end
+        end
+    end
+
+    for i, roleKey in ipairs(ROLES) do
+        local btn = M.MakeBtn(f, ROLE_LABELS[roleKey], 96, 28)
+        btn.roleKey = roleKey
+        if i == 1 then btn:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -70)
+        else btn:SetPoint("LEFT", prevBtn, "RIGHT", 6, 0) end
+        btn:SetScript("OnClick", function()
+            M.config.playerRole = roleKey
+            if M.SaveConfig then M:SaveConfig() end
+            RefreshRoleButtons()
+        end)
+        roleButtons[i] = btn
+        prevBtn = btn
+    end
+
+    -- Explication des rôles
+    SectionHeader(f, "Comportement par rôle", -118)
+
+    local roleInfo = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    roleInfo:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -156)
+    roleInfo:SetWidth(560)
+    roleInfo:SetJustifyH("LEFT")
+    roleInfo:SetSpacing(4)
+    roleInfo:SetTextColor(0.68, 0.68, 0.72)
+    roleInfo:SetText(
+        "|cffcc2222AUTO|r  — Détecté depuis la spécialisation et le rôle de groupe\n" ..
+        "|cffcc2222TANK|r  — Alertes de swap, soaks de boss\n" ..
+        "|cffcc2222HEALER|r  — Alertes de dispel, soins d'urgence\n" ..
+        "|cffcc2222MÊLÉE|r  — Alertes de positionnement mêlée (ex: mur gauche sur Vorasius)\n" ..
+        "|cffcc2222DISTANCE|r  — Alertes de positionnement distance (ex: mur droit sur Vorasius)"
+    )
+
+    f:SetScript("OnShow", RefreshRoleButtons)
+
+    return f
+end
+
 -- ─── Options globales (onglets) ───────────────────────────────────────────────
 
 function M:CreateOptions()
@@ -322,6 +387,7 @@ function M:CreateOptions()
     local TAB_DEFS = {
         { key = "Affichage", build = BuildAffichageTab },
         { key = "Sons",      build = BuildSonsTab      },
+        { key = "Rôle",      build = BuildRoleTab      },
         { key = "Profils",   build = BuildProfilsTab   },
     }
 
@@ -331,8 +397,15 @@ function M:CreateOptions()
 
     local function SwitchTab(key)
         for _, tb in ipairs(tabBtns) do
-            if tb.tabKey == key then tb:SetAlpha(1.0); tb:LockHighlight()
-            else tb:SetAlpha(0.55); tb:UnlockHighlight() end
+            if tb.tabKey == key then
+                tb.btxt:SetTextColor(1, 1, 1)
+                tb.bbar:SetColorTexture(R, G, B, 1)
+                tb.bbg:SetColorTexture(0.11, 0.11, 0.14, 1)
+            else
+                tb.btxt:SetTextColor(0.48, 0.48, 0.54)
+                tb.bbar:SetColorTexture(R, G, B, 0)
+                tb.bbg:SetColorTexture(0.08, 0.08, 0.10, 1)
+            end
         end
         for k, tf in pairs(tabFrames) do
             if k == key then tf:Show() else tf:Hide() end
@@ -340,7 +413,7 @@ function M:CreateOptions()
     end
 
     for i, def in ipairs(TAB_DEFS) do
-        local btn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
+        local btn = CreateFrame("Button", nil, frame)
         btn:SetSize(120, 28)
         btn.tabKey = def.key
         if i == 1 then
@@ -348,7 +421,25 @@ function M:CreateOptions()
         else
             btn:SetPoint("LEFT", prevBtn, "RIGHT", 4, 0)
         end
-        btn:SetText(def.key)
+
+        local bbg = btn:CreateTexture(nil, "BACKGROUND")
+        bbg:SetAllPoints(); bbg:SetColorTexture(0.08, 0.08, 0.10, 1)
+        btn.bbg = bbg
+
+        local bhl = btn:CreateTexture(nil, "HIGHLIGHT")
+        bhl:SetAllPoints(); bhl:SetColorTexture(R, G, B, 0.10)
+
+        local bbar = btn:CreateTexture(nil, "ARTWORK")
+        bbar:SetHeight(2)
+        bbar:SetPoint("BOTTOMLEFT"); bbar:SetPoint("BOTTOMRIGHT")
+        bbar:SetColorTexture(R, G, B, 0)
+        btn.bbar = bbar
+
+        local btxt = btn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        btxt:SetAllPoints(); btxt:SetJustifyH("CENTER"); btxt:SetJustifyV("MIDDLE")
+        btxt:SetText(def.key); btxt:SetTextColor(0.48, 0.48, 0.54)
+        btn.btxt = btxt
+
         btn:SetScript("OnClick", function() SwitchTab(def.key) end)
         tabBtns[i] = btn
         prevBtn = btn
@@ -412,6 +503,7 @@ function M:CreateImperatorPanel()
             local numLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
             numLbl:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -176 - (i - 1) * 32)
             numLbl:SetText(tostring(i) .. ".")
+            numLbl:SetTextColor(0.72, 0.72, 0.76)
 
             local eb = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
             eb:SetSize(200, 24)
@@ -422,10 +514,8 @@ function M:CreateImperatorPanel()
             editBoxes[i] = eb
         end
 
-        saveRotBtn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-        saveRotBtn:SetSize(130, 26)
+        saveRotBtn = M.MakeBtn(frame, "Sauvegarder", 130, 26)
         saveRotBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -312)
-        saveRotBtn:SetText("Sauvegarder")
 
         local rotFeedback = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
         rotFeedback:SetPoint("LEFT", saveRotBtn, "RIGHT", 10, 0)
@@ -478,49 +568,15 @@ function M:CreateVorasiusPanel()
         "Mode Mythique  (3 explosions/mur + flaques au sol)",
         "vorasiusMythicMode", "TOPLEFT", frame, "TOPLEFT", 0, -72)
 
-    -- Sélecteur de rôle (global — utilisé par tous les boss)
-    SectionHeader(frame, "Rôle global", -106)
-    local roleTitle = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    roleTitle:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -150)
-    roleTitle:SetText("Forcer le rôle  (AUTO = détection auto par spec / rôle de groupe) :")
-
-    local ROLES       = { "AUTO", "TANK", "HEALER", "MELEE", "RANGE" }
-    local ROLE_LABELS = { AUTO="AUTO", TANK="Tank", HEALER="Healer", MELEE="Mêlée", RANGE="Distance" }
-    local roleButtons = {}
-    local prevBtn
-
-    local function RefreshRoleButtons()
-        local current = M.config.playerRole or "AUTO"
-        for _, btn in ipairs(roleButtons) do
-            if btn.roleKey == current then btn:SetAlpha(1.0); btn:LockHighlight()
-            else btn:SetAlpha(0.55); btn:UnlockHighlight() end
-        end
-    end
-
-    for i, roleKey in ipairs(ROLES) do
-        local btn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-        btn:SetSize(96, 28)
-        btn.roleKey = roleKey
-        if i == 1 then btn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -174)
-        else btn:SetPoint("LEFT", prevBtn, "RIGHT", 6, 0) end
-        btn:SetText(ROLE_LABELS[roleKey])
-        btn:SetScript("OnClick", function()
-            M.config.playerRole = roleKey
-            if M.SaveConfig then M:SaveConfig() end
-            RefreshRoleButtons()
-        end)
-        roleButtons[i] = btn
-        prevBtn = btn
-    end
-
     -- Info strat
     local infoBox = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    infoBox:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -222)
+    infoBox:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -118)
     infoBox:SetWidth(560)
     infoBox:SetJustifyH("LEFT")
     infoBox:SetSpacing(3)
+    infoBox:SetTextColor(0.68, 0.68, 0.72)
     infoBox:SetText(
-        "|cffffcc00Strat guilde|r\n" ..
+        "|cffcc2222Strat guilde|r\n" ..
         "  • MÊLÉE → Mur GAUCHE   |   DISTANCE → Mur DROIT\n" ..
         "  • Mythique : 3 kills d'Ectocloque par mur\n" ..
         "  • Swap tank après 2 soaks de Shadowclaw Slam\n" ..
@@ -529,7 +585,7 @@ function M:CreateVorasiusPanel()
     )
 
     -- Boutons de test
-    SectionHeader(frame, "Test des alertes", -340)
+    SectionHeader(frame, "Test des alertes", -230)
 
     local TEST_BTNS = {
         { arg = "slam",    label = "Shadowclaw Slam" },
@@ -545,11 +601,9 @@ function M:CreateVorasiusPanel()
     for i, t in ipairs(TEST_BTNS) do
         local col = (i - 1) % 4
         local row = math.floor((i - 1) / 4)
-        local btn = CreateFrame("Button", nil, frame, "UIPanelButtonTemplate")
-        btn:SetSize(124, 26)
-        if col == 0 then btn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -378 - row * 34)
+        local btn = M.MakeBtn(frame, t.label, 124, 26)
+        if col == 0 then btn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -268 - row * 34)
         else btn:SetPoint("LEFT", prevTest, "RIGHT", 6, 0) end
-        btn:SetText(t.label)
         btn:SetScript("OnClick", function()
             if SlashCmdList and SlashCmdList["LHVORASIUSTEST"] then
                 SlashCmdList["LHVORASIUSTEST"](t.arg)
@@ -560,7 +614,6 @@ function M:CreateVorasiusPanel()
 
     frame:SetScript("OnShow", function()
         mythicCheck:SetChecked(M.config.vorasiusMythicMode)
-        RefreshRoleButtons()
     end)
 
     return frame
