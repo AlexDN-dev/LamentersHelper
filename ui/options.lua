@@ -749,10 +749,45 @@ function M:CreateChimaerUsPanel()
     madnessInfo:SetJustifyH("LEFT")
     madnessInfo:SetText(
         "Détection automatique.\n" ..
-        "Quand un joueur reçoit le debuff, tout le raid est alerté.\n" ..
-        "La personne ciblée reçoit une alerte privée pour se préparer."
+        "La personne ciblée reçoit une alerte privée."
     )
-    y = y - 52
+    y = y - 44
+
+    -- ── Test des alertes ─────────────────────────────────────────────────────
+    SectionHeader(c, "Test des alertes", y)
+    y = y - 38
+
+    local TEST_BTNS = {
+        { arg = "upheaval",  label = "Alndust Upheaval" },
+        { arg = "miasma",    label = "Consuming Miasma" },
+        { arg = "madness",   label = "Rift Madness"     },
+        { arg = "rending",   label = "Rending Tear"     },
+        { arg = "fearsome",  label = "Fearsome Cry"     },
+        { arg = "consume",   label = "Consume"          },
+        { arg = "devastation", label = "Corrupted Dev." },
+        { arg = "phlegm",    label = "Caustic Phlegm"   },
+        { arg = "dissonance",label = "Dissonance"       },
+    }
+
+    local prevTest
+    for i, t in ipairs(TEST_BTNS) do
+        local col = (i - 1) % 3
+        local row = math.floor((i - 1) / 3)
+        local btn = M.MakeBtn(c, t.label, 168, 26)
+        if col == 0 then
+            btn:SetPoint("TOPLEFT", c, "TOPLEFT", 0, y - row * 34)
+        else
+            btn:SetPoint("LEFT", prevTest, "RIGHT", 6, 0)
+        end
+        btn:SetScript("OnClick", function()
+            if SlashCmdList and SlashCmdList["LHCHIMAERTEST"] then
+                SlashCmdList["LHCHIMAERTEST"](t.arg)
+            end
+        end)
+        prevTest = btn
+    end
+    local testRows = math.ceil(#TEST_BTNS / 3)
+    y = y - testRows * 34 - 10
 
     -- Hauteur dynamique du scroll content
     c:SetHeight(math.abs(y) + 40)

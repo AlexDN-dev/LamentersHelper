@@ -232,6 +232,39 @@ local function ResetState()
 end
 
 -- ─── Événements ──────────────────────────────────────────────────────────────
+-- ─── Slash commande de test ───────────────────────────────────────────────────
+SLASH_LHCHIMAERTEST1 = "/lhchimaertest"
+SlashCmdList["LHCHIMAERTEST"] = function(arg)
+    local me = UnitName("player")
+    if arg == "upheaval" then
+        soakCount = soakCount + 1
+        local isGroupA   = (soakCount % 2 == 1)
+        local groupLabel = isGroupA and "GROUPE A (1&3)" or "GROUPE B (2&4)"
+        ShowAlert("[UPHEAVAL]  " .. groupLabel .. "  — SOAK !", "soak", ALNDUST_UPHEAVAL_ID)
+        ShowPrivate("TON TOUR DE SOAK  — " .. groupLabel, ALNDUST_UPHEAVAL_ID)
+    elseif arg == "miasma" then
+        miasmaCount = miasmaCount + 1
+        local rot = GetMiasmaRotation()
+        local idx = ((miasmaCount - 1) % #rot) + 1
+        ShowDispel("DISPELL  |cffffff00" .. me .. "|r  !", CONSUMING_MIASMA_ID)
+    elseif arg == "madness" then
+        ShowPrivate("RIFT MADNESS — UN JOUEUR VIENT TE COUVRIR !", RIFT_MADNESS_ID)
+    elseif arg == "rending" then
+        ShowPrivate("RENDING TEAR SUR TOI — ATTEND LE TAUNT !", RENDING_TEAR_ID)
+        ShowPrivate("RENDING TEAR — TAUNT " .. me .. " !", RENDING_TEAR_ID)
+    elseif arg == "fearsome" then
+        OnFearsomeCryCast()
+    elseif arg == "consume" then
+        OnConsumeCast()
+    elseif arg == "devastation" then
+        OnCorruptedDevCast()
+    elseif arg == "phlegm" then
+        ShowAlert("CAUSTIC PHLEGM — DOT RAID !", "global", CAUSTIC_PHLEGM_ID)
+    elseif arg == "dissonance" then
+        ShowPrivate("DISSONANCE — CHANGE DE REALM !", DISSONANCE_ID)
+    end
+end
+
 frame:RegisterEvent("ENCOUNTER_START")
 frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
