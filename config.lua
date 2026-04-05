@@ -52,8 +52,13 @@ local defaults = {
     vorasiusMythicMode = true,     -- 3 explosions par mur + flaques
 
     -- Imperator — Rotation de dispel (Void Marked)
-    -- Ordre : chaque application est assignée à DISPEL_ROTATION[i % 4 + 1]
     imperatorDispelRotation = { "Lill\195\164ka", "Smiths", "Wadabloom", "C\195\164bron" },
+
+    -- Chimaerus — Configuration Mythique
+    chimerusMiasmaRotation = { "Lill\195\164ka", "Smiths", "Wadabloom", "C\195\164bron" },
+    chimaeraSoakGroupA     = {},   -- Noms joueurs groupes 1&3
+    chimaeraSoakGroupB     = {},   -- Noms joueurs groupes 2&4
+    chimaeraMadnessPairs   = {},   -- { {healer="X", partner="Y"}, ... }
 }
 
 M.config = {}

@@ -619,6 +619,202 @@ function M:CreateVorasiusPanel()
     return frame
 end
 
+-- ─── Panneau Chimaerus ────────────────────────────────────────────────────────
+
+function M:CreateChimaerUsPanel()
+    local frame = CreateFrame("Frame", nil, M.content)
+    frame:SetAllPoints(M.content)
+
+    local isPriv = IsPrivileged()
+
+    SectionHeader(frame, "Chimaerus the Undreamt God — Mythique", -28)
+
+    local lockNote = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    lockNote:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -64)
+    lockNote:SetTextColor(0.6, 0.6, 0.6)
+    lockNote:SetText(isPriv and "" or "|cffff4444Réservé au Raid Leader et aux assistants.|r")
+
+    if not isPriv then return frame end
+
+    -- ── Rotation de dispel Consuming Miasma ──────────────────────────────────
+    SectionHeader(frame, "Rotation de dispel — Consuming Miasma", -64)
+
+    local miasmaInfo = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    miasmaInfo:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -102)
+    miasmaInfo:SetTextColor(0.6, 0.6, 0.6)
+    miasmaInfo:SetText("Ordre de dispel du debuff Consuming Miasma (1→2→3→4→1→...)")
+
+    local miasmaBoxes = {}
+    for i = 1, 4 do
+        local numLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        numLbl:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -122 - (i - 1) * 32)
+        numLbl:SetText(tostring(i) .. ".")
+        numLbl:SetTextColor(0.72, 0.72, 0.76)
+
+        local eb = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
+        eb:SetSize(200, 24)
+        eb:SetPoint("LEFT", numLbl, "RIGHT", 8, 0)
+        eb:SetAutoFocus(false)
+        eb:SetMaxLetters(40)
+        local rot = M.config.chimerusMiasmaRotation or {}
+        eb:SetText(rot[i] or "")
+        miasmaBoxes[i] = eb
+    end
+
+    local saveMiasmaBtn = M.MakeBtn(frame, "Sauvegarder", 130, 26)
+    saveMiasmaBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -258)
+
+    local miasmaFeedback = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    miasmaFeedback:SetPoint("LEFT", saveMiasmaBtn, "RIGHT", 10, 0)
+    miasmaFeedback:SetText("")
+
+    saveMiasmaBtn:SetScript("OnClick", function()
+        local newRot = {}
+        for i = 1, 4 do
+            local name = miasmaBoxes[i]:GetText():match("^%s*(.-)%s*$")
+            newRot[i] = name ~= "" and name or ""
+        end
+        M.config.chimerusMiasmaRotation = newRot
+        if M.SaveConfig then M:SaveConfig() end
+        miasmaFeedback:SetText("|cff00ff00Sauvegardé !|r")
+        C_Timer.After(2, function() miasmaFeedback:SetText("") end)
+    end)
+
+    -- ── Groupes de soak Alndust Upheaval ─────────────────────────────────────
+    SectionHeader(frame, "Groupes de soak — Alndust Upheaval", -295)
+
+    local soakInfo = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    soakInfo:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -333)
+    soakInfo:SetTextColor(0.6, 0.6, 0.6)
+    soakInfo:SetText("Groupe A = groupes 1&3   |   Groupe B = groupes 2&4   (séparés par des virgules)")
+
+    -- Groupe A
+    local lblA = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    lblA:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -355)
+    lblA:SetText("Groupe A :")
+    lblA:SetTextColor(0.72, 0.72, 0.76)
+
+    local ebA = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
+    ebA:SetSize(380, 24)
+    ebA:SetPoint("LEFT", lblA, "RIGHT", 8, 0)
+    ebA:SetAutoFocus(false)
+    ebA:SetMaxLetters(200)
+
+    -- Groupe B
+    local lblB = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    lblB:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -387)
+    lblB:SetText("Groupe B :")
+    lblB:SetTextColor(0.72, 0.72, 0.76)
+
+    local ebB = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
+    ebB:SetSize(380, 24)
+    ebB:SetPoint("LEFT", lblB, "RIGHT", 8, 0)
+    ebB:SetAutoFocus(false)
+    ebB:SetMaxLetters(200)
+
+    local saveSoakBtn = M.MakeBtn(frame, "Sauvegarder", 130, 26)
+    saveSoakBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -420)
+
+    local soakFeedback = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    soakFeedback:SetPoint("LEFT", saveSoakBtn, "RIGHT", 10, 0)
+    soakFeedback:SetText("")
+
+    local function ParseNames(str)
+        local t = {}
+        for name in str:gmatch("([^,]+)") do
+            local trimmed = name:match("^%s*(.-)%s*$")
+            if trimmed ~= "" then t[#t + 1] = trimmed end
+        end
+        return t
+    end
+
+    local function NamesToString(t)
+        return table.concat(t or {}, ", ")
+    end
+
+    saveSoakBtn:SetScript("OnClick", function()
+        M.config.chimaeraSoakGroupA = ParseNames(ebA:GetText())
+        M.config.chimaeraSoakGroupB = ParseNames(ebB:GetText())
+        if M.SaveConfig then M:SaveConfig() end
+        soakFeedback:SetText("|cff00ff00Sauvegardé !|r")
+        C_Timer.After(2, function() soakFeedback:SetText("") end)
+    end)
+
+    -- ── Rift Madness swap pairs ───────────────────────────────────────────────
+    SectionHeader(frame, "Rift Madness — Pairs de swap", -457)
+
+    local madnessInfo = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    madnessInfo:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -495)
+    madnessInfo:SetTextColor(0.6, 0.6, 0.6)
+    madnessInfo:SetText("Un debuff tombe toujours sur un healer. Renseignez son partenaire Reality.")
+
+    local pairBoxes = {}
+    for i = 1, 3 do
+        local healerLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        healerLbl:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -515 - (i - 1) * 34)
+        healerLbl:SetText("Healer " .. i .. " :")
+        healerLbl:SetTextColor(0.72, 0.72, 0.76)
+
+        local healerBox = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
+        healerBox:SetSize(160, 24)
+        healerBox:SetPoint("LEFT", healerLbl, "RIGHT", 8, 0)
+        healerBox:SetAutoFocus(false)
+        healerBox:SetMaxLetters(40)
+
+        local partnerLbl = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        partnerLbl:SetPoint("LEFT", healerBox, "RIGHT", 12, 0)
+        partnerLbl:SetText("↔")
+        partnerLbl:SetTextColor(R, G, B)
+
+        local partnerBox = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
+        partnerBox:SetSize(160, 24)
+        partnerBox:SetPoint("LEFT", partnerLbl, "RIGHT", 8, 0)
+        partnerBox:SetAutoFocus(false)
+        partnerBox:SetMaxLetters(40)
+
+        pairBoxes[i] = { healer = healerBox, partner = partnerBox }
+    end
+
+    local savePairsBtn = M.MakeBtn(frame, "Sauvegarder", 130, 26)
+    savePairsBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -621)
+
+    local pairsFeedback = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    pairsFeedback:SetPoint("LEFT", savePairsBtn, "RIGHT", 10, 0)
+    pairsFeedback:SetText("")
+
+    savePairsBtn:SetScript("OnClick", function()
+        local newPairs = {}
+        for i = 1, 3 do
+            local h = pairBoxes[i].healer:GetText():match("^%s*(.-)%s*$")
+            local p = pairBoxes[i].partner:GetText():match("^%s*(.-)%s*$")
+            if h ~= "" and p ~= "" then
+                newPairs[#newPairs + 1] = { healer = h, partner = p }
+            end
+        end
+        M.config.chimaeraMadnessPairs = newPairs
+        if M.SaveConfig then M:SaveConfig() end
+        pairsFeedback:SetText("|cff00ff00Sauvegardé !|r")
+        C_Timer.After(2, function() pairsFeedback:SetText("") end)
+    end)
+
+    frame:SetScript("OnShow", function()
+        local rot = M.config.chimerusMiasmaRotation or {}
+        for i = 1, 4 do miasmaBoxes[i]:SetText(rot[i] or "") end
+
+        ebA:SetText(NamesToString(M.config.chimaeraSoakGroupA))
+        ebB:SetText(NamesToString(M.config.chimaeraSoakGroupB))
+
+        local pairs = M.config.chimaeraMadnessPairs or {}
+        for i = 1, 3 do
+            local p = pairs[i]
+            pairBoxes[i].healer:SetText(p and p.healer or "")
+            pairBoxes[i].partner:SetText(p and p.partner or "")
+        end
+    end)
+
+    return frame
+end
+
 -- ─── Panneau Couronne ─────────────────────────────────────────────────────────
 
 function M:CreateCrownPanel()

@@ -23,6 +23,7 @@ boss/salhadaar/alerts.lua
 boss/drakes/alerts.lua
 boss/vanguard/alerts.lua
 boss/crown/alerts.lua
+boss/chimaerus/alerts.lua
 
 ui/mainpanel.lua
 ui/options.lua
