@@ -44,11 +44,4 @@ function M:PlayAlertSound(soundType)
     if not M.config or M.config.soundEnabled == false then return end
 
     PlayType(soundType)
-
-    -- Double ping pour les dispels : 2ème son 0.3s après
-    if soundType == "dispel" then
-        C_Timer.After(0.3, function()
-            PlayType(soundType)
-        end)
-    end
 end
