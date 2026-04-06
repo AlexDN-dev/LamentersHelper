@@ -1,5 +1,9 @@
+<# :
 @echo off
-powershell -NoProfile -ExecutionPolicy Bypass -Command "
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~f0"
+exit /b
+#>
+
 $host.UI.RawUI.WindowTitle = 'LamentersHelper Updater'
 
 Write-Host ''
@@ -25,7 +29,7 @@ $plain  = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
 $hash   = [System.BitConverter]::ToString(
               [System.Security.Cryptography.SHA256]::Create().ComputeHash(
                   [System.Text.Encoding]::UTF8.GetBytes($plain)
-              )).Replace('-','').ToLower()
+              )).Replace('-', '').ToLower()
 
 if ($hash -ne $expectedHash) {
     Write-Host ''
@@ -60,7 +64,7 @@ if (-not $wowBase) {
         'D:\Program Files\World of Warcraft'
     )
     foreach ($p in $candidates) {
-        if (Test-Path \"$p\_retail_\Interface\AddOns\") {
+        if (Test-Path "$p\_retail_\Interface\AddOns") {
             $wowBase = $p
             break
         }
@@ -75,7 +79,7 @@ if (-not $wowBase) {
     exit 1
 }
 
-$lhPath = \"$wowBase\_retail_\Interface\AddOns\LamentersHelper\"
+$lhPath = "$wowBase\_retail_\Interface\AddOns\LamentersHelper"
 
 if (-not (Test-Path $lhPath)) {
     Write-Host '  [ERREUR] LamentersHelper non installe.' -ForegroundColor Red
@@ -85,21 +89,21 @@ if (-not (Test-Path $lhPath)) {
     exit 1
 }
 
-Write-Host \"  WoW detecte : $wowBase\" -ForegroundColor Green
+Write-Host "  WoW detecte : $wowBase" -ForegroundColor Green
 Write-Host '  LamentersHelper trouve.' -ForegroundColor Green
 Write-Host ''
 Write-Host '  Telechargement de la derniere version...' -ForegroundColor Cyan
 
 # ── Telechargement ────────────────────────────────────────────────────────────
 $zipUrl = 'https://github.com/AlexDN-dev/LamentersHelper/archive/refs/heads/main.zip'
-$tmpZip = \"\$env:TEMP\LamentersHelper_update.zip\"
-$tmpDir = \"\$env:TEMP\LamentersHelper_update\"
+$tmpZip = "$env:TEMP\LamentersHelper_update.zip"
+$tmpDir = "$env:TEMP\LamentersHelper_update"
 
 try {
     Invoke-WebRequest -Uri $zipUrl -OutFile $tmpZip -UseBasicParsing -ErrorAction Stop
 } catch {
     Write-Host ''
-    Write-Host \"  [ERREUR] Telechargement echoue : \$_\" -ForegroundColor Red
+    Write-Host "  [ERREUR] Telechargement echoue : $_" -ForegroundColor Red
     Read-Host '  Appuie sur Entree pour fermer'
     exit 1
 }
@@ -110,7 +114,7 @@ Write-Host '  Mise a jour des fichiers...' -ForegroundColor Cyan
 if (Test-Path $tmpDir) { Remove-Item $tmpDir -Recurse -Force }
 Expand-Archive -Path $tmpZip -DestinationPath $tmpDir -Force
 
-$srcPath = \"$tmpDir\LamentersHelper-main\"
+$srcPath = "$tmpDir\LamentersHelper-main"
 
 Get-ChildItem -Path $srcPath -Recurse | ForEach-Object {
     $relative = $_.FullName.Substring($srcPath.Length + 1)
@@ -135,4 +139,3 @@ Write-Host '   /reload en jeu pour appliquer.' -ForegroundColor White
 Write-Host '  ================================' -ForegroundColor DarkGreen
 Write-Host ''
 Read-Host '  Appuie sur Entree pour fermer'
-"
