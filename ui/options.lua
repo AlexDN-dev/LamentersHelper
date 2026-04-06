@@ -62,81 +62,195 @@ end
 
 -- ─── Onglet : Affichage ───────────────────────────────────────────────────────
 
+local BOSS_CHOICES = {
+    { key = "default",   label = "D\195\169faut (tous les boss)" },
+    { key = "imperator", label = "Imperator"                     },
+    { key = "vorasius",  label = "Vorasius"                      },
+    { key = "salhadaar", label = "Salhadaar"                     },
+    { key = "drakes",    label = "Vaelgor & Ezzorak"             },
+    { key = "vanguard",  label = "Avant-garde"                   },
+    { key = "crown",     label = "Couronne"                      },
+    { key = "chimaerus", label = "Chimaerus"                     },
+}
+
+local CHANNEL_DEFS = {
+    { key = "global",  label = "Texte Global", color = {1, 1, 1},        sizeKey = "textSize",        sizeMin = 10, sizeMax = 60 },
+    { key = "private", label = "Texte Priv\195\169", color = {1, 0.65, 0.2}, sizeKey = "privateTextSize", sizeMin = 10, sizeMax = 40 },
+    { key = "rlNote",  label = "Note RL",      color = {0.3, 0.85, 1},   sizeKey = "rlNoteTextSize",  sizeMin = 10, sizeMax = 32 },
+}
+
+local function MakeDropdown(parent, choices, onSelect)
+    local btn = M.MakeBtn(parent, choices[1].label, 220, 26)
+    btn.selectedKey = choices[1].key
+
+    local popup = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    popup:SetSize(220, #choices * 24 + 8)
+    popup:SetBackdrop({
+        bgFile   = "Interface/Tooltips/UI-Tooltip-Background",
+        edgeFile = "Interface/ChatFrame/ChatFrameBackground",
+        edgeSize = 1,
+    })
+    popup:SetBackdropColor(0.06, 0.06, 0.09, 0.97)
+    popup:SetBackdropBorderColor(0.22, 0.22, 0.28, 1)
+    popup:SetFrameStrata("TOOLTIP")
+    popup:Hide()
+
+    for i, choice in ipairs(choices) do
+        local row = CreateFrame("Button", nil, popup)
+        row:SetSize(220, 24)
+        row:SetPoint("TOPLEFT", popup, "TOPLEFT", 0, -(i - 1) * 24 - 4)
+
+        local hl = row:CreateTexture(nil, "HIGHLIGHT")
+        hl:SetAllPoints(); hl:SetColorTexture(R, G, B, 0.18)
+
+        local lbl = row:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        lbl:SetPoint("LEFT", row, "LEFT", 10, 0)
+        lbl:SetText(choice.label)
+        lbl:SetTextColor(0.88, 0.88, 0.90)
+
+        row:SetScript("OnClick", function()
+            btn:SetText(choice.label)
+            btn.selectedKey = choice.key
+            popup:Hide()
+            onSelect(choice.key)
+        end)
+    end
+
+    btn:SetScript("OnClick", function()
+        if popup:IsShown() then
+            popup:Hide()
+        else
+            popup:ClearAllPoints()
+            popup:SetPoint("TOPLEFT", btn, "BOTTOMLEFT", 0, -2)
+            popup:Show()
+        end
+    end)
+
+    -- Ferme le popup si on clique ailleurs
+    do
+        local p = popup
+        popup:SetScript("OnLeave", function()
+            C_Timer.After(0.15, function() if not p:IsMouseOver() then p:Hide() end end)
+        end)
+    end
+
+    return btn, popup
+end
+
 local function BuildAffichageTab(parent)
     local f = CreateFrame("Frame", nil, parent)
     f:SetAllPoints()
 
-    SectionHeader(f, "Position des textes", -8)
+    -- ── Section : Positions des textes ────────────────────────────────────────
+    SectionHeader(f, "Positions des textes", -8)
 
-    local toggleBtn = M.MakeBtn(f, "Afficher les ancres", 200, 28)
-    toggleBtn:SetPoint("TOPLEFT", 0, -42)
+    local ddLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    ddLabel:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -42)
+    ddLabel:SetTextColor(0.60, 0.60, 0.65)
+    ddLabel:SetText("\195\137diter les positions pour :")
 
-    local anchorsVisible = false
-    local sliders = {}
+    local ddBtn, ddPopup = MakeDropdown(f, BOSS_CHOICES, function(bossKey)
+        M.anchorEditingBoss = bossKey
+        if M.RefreshAnchorPositions then M:RefreshAnchorPositions() end
+    end)
+    ddBtn:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -60)
 
-    local s1 = MakeSlider(f, "GlobalSize", "Texte global", 10, 60, "textSize",
-        "TOPLEFT", toggleBtn, "BOTTOMLEFT", 12, -42,
-        function(v)
-            if M.previewText    then M.previewText:SetFont("Fonts\\FRIZQT__.TTF", v) end
-            if M.displayText    then M.displayText:SetFont("Fonts\\FRIZQT__.TTF", v) end
-        end)
+    -- ── Lignes par canal ──────────────────────────────────────────────────────
+    local rowY     = -100
+    local rowGap   = 38
+    local toggleBtns = {}
 
-    local s2 = MakeSlider(f, "PrivateSize", "Texte privé", 10, 40, "privateTextSize",
-        "LEFT", s1, "RIGHT", 60, 0,
-        function(v)
-            if M.privatePreviewText then M.privatePreviewText:SetFont("Fonts\\FRIZQT__.TTF", v) end
-            if M.privateDisplayText then M.privateDisplayText:SetFont("Fonts\\FRIZQT__.TTF", v) end
-        end)
+    local isOwner = (UnitName("player") == RL_NOTE_PLAYER)
 
-    local s3
-    if UnitName("player") == RL_NOTE_PLAYER then
-        s3 = MakeSlider(f, "RLNoteSize", "Note RL", 10, 32, "rlNoteTextSize",
-            "TOPLEFT", s1, "BOTTOMLEFT", 0, -52,
-            function(v)
-                if M.rlNotePreviewText then M.rlNotePreviewText:SetFont("Fonts\\FRIZQT__.TTF", v) end
-                if M.rlNoteDisplayText  then M.rlNoteDisplayText:SetFont("Fonts\\FRIZQT__.TTF", v) end
+    for _, def in ipairs(CHANNEL_DEFS) do
+        if def.key == "rlNote" and not isOwner then
+            -- Note RL : masquée pour les non-propriétaires
+        else
+            local r2, g2, b2 = unpack(def.color)
+
+            local colorBar = f:CreateTexture(nil, "ARTWORK")
+            colorBar:SetSize(4, 22)
+            colorBar:SetPoint("TOPLEFT", f, "TOPLEFT", 0, rowY + 1)
+            colorBar:SetColorTexture(r2, g2, b2, 1)
+
+            local nameLbl = f:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            nameLbl:SetPoint("TOPLEFT", f, "TOPLEFT", 10, rowY)
+            nameLbl:SetText(def.label)
+            nameLbl:SetTextColor(r2, g2, b2)
+
+            local toggleBtn = M.MakeBtn(f, "Afficher", 80, 24)
+            toggleBtn:SetPoint("TOPLEFT", f, "TOPLEFT", 150, rowY - 1)
+            toggleBtn.channelKey = def.key
+
+            local resetBtn = M.MakeBtn(f, "Reset", 60, 24)
+            resetBtn:SetPoint("LEFT", toggleBtn, "RIGHT", 6, 0)
+            resetBtn._txt:SetTextColor(1, 0.40, 0.40)
+
+            MakeSlider(f,
+                def.key .. "SizeSlider",
+                "Taille", def.sizeMin, def.sizeMax, def.sizeKey,
+                "TOPLEFT", f, "TOPLEFT", 242, rowY - 1,
+                function(v)
+                    local ch = M.channels and M.channels[def.key]
+                    if ch then
+                        if ch.previewText then ch.previewText:SetFont("Fonts\\FRIZQT__.TTF", v, "OUTLINE") end
+                        if ch.displayText then ch.displayText:SetFont("Fonts\\FRIZQT__.TTF", v, "OUTLINE") end
+                    end
+                end)
+
+            toggleBtn:SetScript("OnClick", function()
+                local ch = M.channels and M.channels[def.key]
+                if not ch then return end
+                ch.anchorVisible = not ch.anchorVisible
+                toggleBtn:SetText(ch.anchorVisible and "Cacher" or "Afficher")
+                if ch.previewFrame then
+                    if ch.anchorVisible then ch.previewFrame:Show() else ch.previewFrame:Hide() end
+                end
+                if M.RefreshGridVisibility then M:RefreshGridVisibility() end
             end)
+
+            resetBtn:SetScript("OnClick", function()
+                if M.ResetChannelPos then M:ResetChannelPos(def.key, ddBtn.selectedKey) end
+            end)
+
+            table.insert(toggleBtns, toggleBtn)
+            rowY = rowY - rowGap
+        end
     end
 
-    sliders = { s1, s2, s3 }
-    for _, s in ipairs(sliders) do if s then s:Hide() end end
-
-    toggleBtn:SetScript("OnClick", function()
-        anchorsVisible = not anchorsVisible
-        M.anchorMode = anchorsVisible
-
-        if M.previewFrame        then if anchorsVisible then M.previewFrame:Show()        else M.previewFrame:Hide()        end end
-        if M.privatePreviewFrame then if anchorsVisible then M.privatePreviewFrame:Show() else M.privatePreviewFrame:Hide() end end
-        if M.rlNotePreviewFrame  then if anchorsVisible then M.rlNotePreviewFrame:Show()  else M.rlNotePreviewFrame:Hide()  end end
-        if M.RefreshGridVisibility then M:RefreshGridVisibility() end
-
-        for _, s in ipairs(sliders) do
-            if s then if anchorsVisible then s:Show() else s:Hide() end end
-        end
-        toggleBtn:SetText(anchorsVisible and "Cacher les ancres" or "Afficher les ancres")
-    end)
-
-    local baseY = s3 and -176 or -124
-
+    -- ── Section : Visuel ──────────────────────────────────────────────────────
+    local baseY = rowY - 16
     SectionHeader(f, "Visuel", baseY)
 
     local iconsCheck = MakeCheck(f, "Afficher les ic\195\180nes de sort  (discret, sur le texte d'alerte)",
         "showSpellIcons", "TOPLEFT", f, "TOPLEFT", 0, baseY - 34)
 
-    SectionHeader(f, "Développement", baseY - 76)
+    SectionHeader(f, "D\195\169veloppement", baseY - 76)
 
     local debugCheck = MakeCheck(f, "Afficher l'encounterID dans le chat (debug)",
         "debugEncounter", "TOPLEFT", f, "TOPLEFT", 0, baseY - 110)
 
+    -- ── OnShow ────────────────────────────────────────────────────────────────
     f:SetScript("OnShow", function()
-        s1:SetValue(M.config.textSize or 28)
-        s2:SetValue(M.config.privateTextSize or 22)
-        if s3 then s3:SetValue(M.config.rlNoteTextSize or 18) end
+        ddPopup:Hide()
+
+        local currentBoss = M.anchorEditingBoss or "default"
+        for _, choice in ipairs(BOSS_CHOICES) do
+            if choice.key == currentBoss then
+                ddBtn:SetText(choice.label)
+                ddBtn.selectedKey = currentBoss
+                break
+            end
+        end
+
+        -- Sync lignes texte
+        for _, tbtn in ipairs(toggleBtns) do
+            local ch = M.channels and M.channels[tbtn.channelKey]
+            if ch then tbtn:SetText(ch.anchorVisible and "Cacher" or "Afficher") end
+        end
+
         iconsCheck:SetChecked(M.config.showSpellIcons)
         debugCheck:SetChecked(M.config.debugEncounter)
-        anchorsVisible = false
-        toggleBtn:SetText("Afficher les ancres")
-        for _, s in ipairs(sliders) do if s then s:Hide() end end
     end)
 
     return f
@@ -591,7 +705,7 @@ function M:CreateVorasiusPanel()
         { arg = "slam",    label = "Shadowclaw Slam" },
         { arg = "beam",    label = "Souffle du Vide" },
         { arg = "adds",    label = "Ectocloques"     },
-        { arg = "wall",    label = "Mur détruit"     },
+        { arg = "wall",    label = "Mur d\195\169truit"     },
         { arg = "roar",    label = "Grondement"      },
         { arg = "blister", label = "Blisterburst"    },
         { arg = "smashed", label = "Smashed"         },

@@ -59,6 +59,10 @@ local defaults = {
     chimaeraSoakGroupA     = {},   -- Noms joueurs groupes 1&3
     chimaeraSoakGroupB     = {},   -- Noms joueurs groupes 2&4
     chimaeraMadnessPairs   = {},   -- { {healer="X", partner="Y"}, ... }
+
+    -- Positions par boss — { bossKey = { posXKey = val, posYKey = val, ... } }
+    -- Si absent pour un boss, fallback sur les positions globales (posX/posY etc.)
+    bossAnchorOverrides    = {},
 }
 
 M.config = {}

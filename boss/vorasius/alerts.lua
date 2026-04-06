@@ -13,10 +13,6 @@ local BLISTERBURST_AURA  = 1259186  -- Explosion Cuisante : +100% dégâts reçu
 local SMASHED_AURA       = 1241844  -- Heurtoir : vulnérabilité physique tank (cumulable)
 -- Shadowclaw Slam — pas de spellID direct via timeline (dur=16/136/240)
 local SLAM_SPELL         = 1241844  -- réutilise SMASHED pour l'icône (même sort)
--- NOTE : l'aura de ciblage (fixate) et le ralentissement des Ectocloques
---        n'ont pas encore de spell ID confirmé. Activez debugEncounter pour les trouver.
-
--- ─── Specs mêlée : défini dans modules/alerts.lua (M:GetRole()) ───────────────
 
 -- ─── État du combat ───────────────────────────────────────────────────────────
 local inFight          = false
@@ -28,8 +24,6 @@ local voidBreathActive = false
 local activeTimers     = {}
 
 local frame = CreateFrame("Frame")
-
--- M:GetRole() défini dans modules/alerts.lua — utilisé directement ci-dessous
 
 -- ─── Affichage ────────────────────────────────────────────────────────────────
 local function ShowAlert(msg, soundType, spellID)
@@ -130,7 +124,7 @@ local BLISTERCREEP_NAMES = {
 }
 
 local function OnCLEU()
-    local _, event, _, sourceGUID, sourceName, _, _, destGUID, destName, _, _, spellID =
+    local _, event, _, _, sourceName, _, _, destGUID, destName, _, _, spellID =
         CombatLogGetCurrentEventInfo()
 
     -- Souffle du Vide (Void Breath) — détection du début de canalisation
@@ -196,9 +190,6 @@ local function OnUnitAura(unit)
 end
 
 -- ─── Register / Unregister CLEU ──────────────────────────────────────────────
--- ENCOUNTER_START et ENCOUNTER_END sont des events protégés dans WoW Midnight.
--- Register/UnregisterEvent ne peuvent pas être appelés directement depuis leurs
--- handlers. C_Timer.After(0) diffère l'appel au prochain tick, hors contexte protégé.
 local cleuRegistered = false
 
 local function RegisterCLEU()
