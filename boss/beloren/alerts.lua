@@ -217,11 +217,12 @@ local function OnGuardianEdictCast()
     local role = M:GetRole()
     local myA  = GetMyAura()
 
-    ShowAlert("ÉDIT DU GARDIEN — TANKS  |cffff8080CÔNE COLORÉ|r  !", "phase", GUARDIAN_EDICT_ID)
+    -- Depuis le nerf : Édit du Gardien donne +20% dmg au boss — tout le raid doit le savoir
+    ShowAlert("ÉDIT DU GARDIEN — TANKS  |cffff8080CÔNE COLORÉ|r  |cffff4444BOSS +20% DMG|r  !", "phase", GUARDIAN_EDICT_ID)
 
     if role == "TANK" then
         ShowPrivate(
-            "ÉDIT — TON CÔNE " .. AuraLabel(myA) .. "  — POSITIONNE-TOI !",
+            "ÉDIT — TON CÔNE " .. AuraLabel(myA) .. "  — POSITIONNE-TOI  |cffff4444(+20% DMG BOSS)|r !",
             GUARDIAN_EDICT_ID
         )
     end
@@ -271,8 +272,9 @@ local function OnRebirth()
     rebirthCooldown = true
     C_Timer.After(5, function() rebirthCooldown = false end)
 
+    -- Dégâts de Renaissance fortement réduits sur Mythique (nerf) — timer 15s inchangé
     ShowAlert(
-        "RENAISSANCE — TUEZ L'ŒUF  |cffff4444sous 15s|r  !",
+        "RENAISSANCE — TUEZ L'ŒUF  |cffffff0015s|r  !",
         "phase", REBIRTH_ID
     )
     M:ProgressBarCountdown(2, 15, "RENAISSANCE — TUEZ L'ŒUF", "soak")
@@ -281,7 +283,7 @@ local function OnRebirth()
     C_Timer.After(10, function()
         if inFight then
             ShowAlert(
-                "RENAISSANCE — |cffff00005s RESTANTES|r — KILL L'ŒUF !",
+                "RENAISSANCE — |cffffff005s RESTANTES|r — KILL L'ŒUF !",
                 "phase", REBIRTH_ID
             )
         end
