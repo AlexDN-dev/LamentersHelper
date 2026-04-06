@@ -46,7 +46,8 @@ local function BuildTimerCallback(d, dExact)
     elseif d == 27 or d == 22 then
         return function() ShowAlert("DESPOTIC COMMAND — UN JOUEUR CIBLÉ !", "soak", SPELL_DESPOTIC) end
     elseif d == 18 then
-        return function() ShowAlert("FRACTURED IMAGE INVOQUÉ — FOCUS L'ADD !") end
+        -- Shadow Fracture : cast time 12s sur Mythique (était 9s — nerf weekly reset)
+        return function() ShowAlert("FRACTURED IMAGE INVOQUÉ — INTERROMPEZ (12s) !") end
     elseif d == 42 or d == 44 then
         return function() ShowAlert("SHATTERING TWILIGHT — ATTENTION !") end
     elseif d == 100 then
