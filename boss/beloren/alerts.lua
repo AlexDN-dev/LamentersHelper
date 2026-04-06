@@ -275,6 +275,7 @@ local function OnRebirth()
         "RENAISSANCE — TUEZ L'ŒUF  |cffff4444sous 15s|r  !",
         "phase", REBIRTH_ID
     )
+    M:ProgressBarCountdown(2, 15, "RENAISSANCE — TUEZ L'ŒUF", "soak")
 
     -- Rappel à T+10s (5s restantes)
     C_Timer.After(10, function()
@@ -331,6 +332,7 @@ local function OnIncubationFlames()
         "phase", INCUBATION_FLAMES_ID
     )
     ShowPrivate("VA DANS LA ZONE " .. AuraLabel(myA) .. " !", INCUBATION_FLAMES_ID)
+    M:ProgressBarCountdown(1, 30, "PHASE 2 — DPS L'ŒUF !", "phase")
 
     -- Rappel d'aura 3s après la transition (beaucoup de mouvement)
     C_Timer.After(3, function()
@@ -446,6 +448,8 @@ local function ResetState()
         auraReminderTicker:Cancel()
         auraReminderTicker = nil
     end
+    M:ProgressBarHide(1)
+    M:ProgressBarHide(2)
     UnregisterCLEU()
 end
 

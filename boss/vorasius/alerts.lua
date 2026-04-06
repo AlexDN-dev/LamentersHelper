@@ -253,8 +253,13 @@ local function OnUnitAura(unit)
     if blister and not blistered then
         blistered = true
         ShowPrivate("BLISTERBURST — +100% DÉGÂTS REÇUS (30s) !", BLISTERBURST_AURA)
+        local dur = (blister.expirationTime and blister.expirationTime > 0)
+                    and (blister.expirationTime - GetTime())
+                    or (blister.duration or 30)
+        M:ProgressBarCountdown(1, dur, "BLISTERBURST — +100% DMG", "soak")
     elseif not blister then
         blistered = false
+        M:ProgressBarHide(1)
     end
 
     -- Smashed — vulnérabilité physique cumulable sur le tank
@@ -268,9 +273,14 @@ local function OnUnitAura(unit)
             elseif stacks >= SMASHED_SWAP_AT then
                 ShowPrivate("SMASHED ×" .. stacks .. " — SWAP TANK MAINTENANT !", SMASHED_AURA)
             end
+            local timeLeft = (aura.expirationTime and aura.expirationTime > 0)
+                             and (aura.expirationTime - GetTime())
+                             or (aura.duration or 20)
+            M:ProgressBarCountdown(2, timeLeft, "SMASHED \215" .. stacks, "interrupt")
         end
     else
         smashedStacks = 0
+        M:ProgressBarHide(2)
     end
 end
 
@@ -307,6 +317,8 @@ local function ResetState()
     fixatedPlayers   = {}
     classCache       = {}
     M:HideRLNote()
+    M:ProgressBarHide(1)
+    M:ProgressBarHide(2)
     UnregisterCLEU()
 end
 

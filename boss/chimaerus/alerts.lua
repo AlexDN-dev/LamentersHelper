@@ -106,6 +106,13 @@ local function OnRiftMadnessApplied(destName)
 
     if myName == destName then
         ShowPrivate("RIFT MADNESS — UN JOUEUR VIENT TE COUVRIR !", RIFT_MADNESS_ID)
+        -- Countdown : combien de temps le joueur reste dans le Rift
+        trackedAuras.riftBar = true
+        C_Timer.After(0, function()
+            local aura = C_UnitAuras.GetPlayerAuraBySpellID(RIFT_MADNESS_ID)
+            local dur  = aura and aura.duration or 30
+            M:ProgressBarCountdown(2, dur, "RETOUR DU RIFT", "phase")
+        end)
     end
 
     -- RL voit le nom dans le chat (discret, pas d'alerte écran)
@@ -165,6 +172,7 @@ end
 -- ─── Consume : canal boss → tuer les adds ────────────────────────────────────
 local function OnConsumeCast()
     ShowAlert("CONSUME — TUEZ LES ADDS RESTANTS !", "phase", CONSUME_ID)
+    M:ProgressBarCountdown(1, 10, "CONSUME — TUEZ LES ADDS", "phase")
 end
 
 -- ─── Corrupted Devastation : Phase 2 ligne ───────────────────────────────────
@@ -219,6 +227,14 @@ local function OnUnitAura(unit)
     elseif not dissonance then
         trackedAuras.dissonance = nil
     end
+
+    -- Cache la barre Rift Madness quand le debuff disparaît
+    if trackedAuras.riftBar then
+        if not C_UnitAuras.GetPlayerAuraBySpellID(RIFT_MADNESS_ID) then
+            M:ProgressBarHide(2)
+            trackedAuras.riftBar = nil
+        end
+    end
 end
 
 -- ─── Reset ────────────────────────────────────────────────────────────────────
@@ -229,6 +245,8 @@ local function ResetState()
     miasmaCount      = 0
     soakCount        = 0
     fearCryCooldown  = false
+    M:ProgressBarHide(1)
+    M:ProgressBarHide(2)
     UnregisterCLEU()
 end
 
