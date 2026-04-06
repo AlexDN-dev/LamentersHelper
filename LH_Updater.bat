@@ -8,6 +8,25 @@ Write-Host '    LAMENTERS HELPER  -  Updater  ' -ForegroundColor White
 Write-Host '  ================================' -ForegroundColor DarkRed
 Write-Host ''
 
+# ── Mot de passe ──────────────────────────────────────────────────────────────
+$secure = Read-Host '  Mot de passe' -AsSecureString
+$plain  = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+              [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
+$hash   = [System.BitConverter]::ToString(
+              [System.Security.Cryptography.SHA256]::Create().ComputeHash(
+                  [System.Text.Encoding]::UTF8.GetBytes($plain)
+              )).Replace('-','').ToLower()
+
+if ($hash -ne '404afd754b1f9a6e38df05ff58f318a716541af93411f19f2be730afff6b8b37') {
+    Write-Host ''
+    Write-Host '  Mot de passe incorrect.' -ForegroundColor Red
+    Write-Host ''
+    Read-Host '  Appuie sur Entree pour fermer'
+    exit 1
+}
+
+Write-Host ''
+
 # ── Detection WoW ─────────────────────────────────────────────────────────────
 $wowBase = $null
 
@@ -50,7 +69,7 @@ $lhPath = \"$wowBase\_retail_\Interface\AddOns\LamentersHelper\"
 
 if (-not (Test-Path $lhPath)) {
     Write-Host '  [ERREUR] LamentersHelper non installe.' -ForegroundColor Red
-    Write-Host '  Installe l addon une premiere fois depuis le site avant de mettre a jour.' -ForegroundColor Yellow
+    Write-Host '  Installe l addon une premiere fois avant de mettre a jour.' -ForegroundColor Yellow
     Write-Host ''
     Read-Host '  Appuie sur Entree pour fermer'
     exit 1
@@ -76,7 +95,7 @@ try {
     exit 1
 }
 
-# ── Extraction ────────────────────────────────────────────────────────────────
+# ── Mise a jour des fichiers ───────────────────────────────────────────────────
 Write-Host '  Mise a jour des fichiers...' -ForegroundColor Cyan
 
 if (Test-Path $tmpDir) { Remove-Item $tmpDir -Recurse -Force }
@@ -84,10 +103,9 @@ Expand-Archive -Path $tmpZip -DestinationPath $tmpDir -Force
 
 $srcPath = \"$tmpDir\LamentersHelper-main\"
 
-# Copie chaque fichier par-dessus l existant (sans toucher au dossier)
 Get-ChildItem -Path $srcPath -Recurse | ForEach-Object {
-    $relative  = $_.FullName.Substring($srcPath.Length + 1)
-    $dest      = Join-Path $lhPath $relative
+    $relative = $_.FullName.Substring($srcPath.Length + 1)
+    $dest     = Join-Path $lhPath $relative
     if ($_.PSIsContainer) {
         if (-not (Test-Path $dest)) { New-Item -ItemType Directory -Path $dest | Out-Null }
     } else {
