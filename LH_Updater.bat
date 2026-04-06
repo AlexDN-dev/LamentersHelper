@@ -11,7 +11,6 @@ Write-Host ''
 # ── Detection WoW ─────────────────────────────────────────────────────────────
 $wowBase = $null
 
-# 1. Registre Windows (Battle.net installe une cle)
 try {
     $reg = Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Blizzard Entertainment\World of Warcraft' -ErrorAction Stop
     if ($reg.InstallPath -and (Test-Path $reg.InstallPath)) {
@@ -19,7 +18,6 @@ try {
     }
 } catch {}
 
-# 2. Chemins courants si registre vide
 if (-not $wowBase) {
     $candidates = @(
         'C:\Program Files (x86)\World of Warcraft',
@@ -42,43 +40,62 @@ if (-not $wowBase) {
 
 if (-not $wowBase) {
     Write-Host '  [ERREUR] World of Warcraft introuvable.' -ForegroundColor Red
-    Write-Host ''
-    Write-Host '  Modifie la variable wowBase en haut du script avec ton chemin.' -ForegroundColor Yellow
+    Write-Host '  Deplace ce fichier dans ton dossier AddOns et relance.' -ForegroundColor Yellow
     Write-Host ''
     Read-Host '  Appuie sur Entree pour fermer'
     exit 1
 }
 
-$addonsPath = \"$wowBase\_retail_\Interface\AddOns\"
-$lhPath     = \"$addonsPath\LamentersHelper\"
+$lhPath = \"$wowBase\_retail_\Interface\AddOns\LamentersHelper\"
+
+if (-not (Test-Path $lhPath)) {
+    Write-Host '  [ERREUR] LamentersHelper non installe.' -ForegroundColor Red
+    Write-Host '  Installe l addon une premiere fois depuis le site avant de mettre a jour.' -ForegroundColor Yellow
+    Write-Host ''
+    Read-Host '  Appuie sur Entree pour fermer'
+    exit 1
+}
 
 Write-Host \"  WoW detecte : $wowBase\" -ForegroundColor Green
+Write-Host '  LamentersHelper trouve.' -ForegroundColor Green
 Write-Host ''
 Write-Host '  Telechargement de la derniere version...' -ForegroundColor Cyan
 
 # ── Telechargement ────────────────────────────────────────────────────────────
-$zipUrl  = 'https://github.com/AlexDN-dev/LamentersHelper/archive/refs/heads/main.zip'
-$tmpZip  = \"\$env:TEMP\LamentersHelper_update.zip\"
-$tmpDir  = \"\$env:TEMP\LamentersHelper_update\"
+$zipUrl = 'https://github.com/AlexDN-dev/LamentersHelper/archive/refs/heads/main.zip'
+$tmpZip = \"\$env:TEMP\LamentersHelper_update.zip\"
+$tmpDir = \"\$env:TEMP\LamentersHelper_update\"
 
 try {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     Invoke-WebRequest -Uri $zipUrl -OutFile $tmpZip -UseBasicParsing -ErrorAction Stop
 } catch {
     Write-Host ''
-    Write-Host \"  [ERREUR] Impossible de telecharger : \$_\" -ForegroundColor Red
+    Write-Host \"  [ERREUR] Telechargement echoue : \$_\" -ForegroundColor Red
     Read-Host '  Appuie sur Entree pour fermer'
     exit 1
 }
 
-# ── Extraction + remplacement ─────────────────────────────────────────────────
-Write-Host '  Installation...' -ForegroundColor Cyan
+# ── Extraction ────────────────────────────────────────────────────────────────
+Write-Host '  Mise a jour des fichiers...' -ForegroundColor Cyan
 
 if (Test-Path $tmpDir) { Remove-Item $tmpDir -Recurse -Force }
 Expand-Archive -Path $tmpZip -DestinationPath $tmpDir -Force
 
-if (Test-Path $lhPath) { Remove-Item $lhPath -Recurse -Force }
-Move-Item \"$tmpDir\LamentersHelper-main\" $lhPath
+$srcPath = \"$tmpDir\LamentersHelper-main\"
+
+# Copie chaque fichier par-dessus l existant (sans toucher au dossier)
+Get-ChildItem -Path $srcPath -Recurse | ForEach-Object {
+    $relative  = $_.FullName.Substring($srcPath.Length + 1)
+    $dest      = Join-Path $lhPath $relative
+    if ($_.PSIsContainer) {
+        if (-not (Test-Path $dest)) { New-Item -ItemType Directory -Path $dest | Out-Null }
+    } else {
+        $destDir = Split-Path $dest
+        if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir | Out-Null }
+        Copy-Item -Path $_.FullName -Destination $dest -Force
+    }
+}
 
 # ── Nettoyage ─────────────────────────────────────────────────────────────────
 Remove-Item $tmpZip -Force -ErrorAction SilentlyContinue
