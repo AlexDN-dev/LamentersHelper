@@ -129,7 +129,7 @@ if errorlevel 1 (
 )
 
 :: ── Copie dans le dossier addon ───────────────────────────────────────────────
-robocopy "%TMPDIR%\LamentersHelper-main" "%LHPATH%" /E /IS /IT /NFL /NDL /NJH /NJS >nul
+robocopy "%TMPDIR%\LamentersHelper-main" "%LHPATH%" /E /IS /IT /NFL /NDL /NJH /NJS /NC /NS /NP /LOG:nul
 
 :: ── Nettoyage ─────────────────────────────────────────────────────────────────
 del /q "%TMPZIP%" 2>nul
