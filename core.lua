@@ -1,16 +1,20 @@
 local addonName, M = ...
 
--- C_UnitAuras.GetAuraDataBySpellID n'existe pas en WoW 12.0 Midnight.
--- On itère avec GetAuraDataByIndex, qui est stable depuis WoW 10.0.
--- IMPORTANT: aura.spellId est une "Secret Value" taintée sur les unités boss/cible.
--- Cette fonction ne fonctionne que sur "player" (auras non-privées du joueur).
+-- GetPlayerAuraBySpellID retourne l'aura directement sans exposer le champ spellId tainté.
+-- Comparer aura.spellId (Secret Value) via GetAuraDataByIndex cause un taint → bloqué par Blizzard.
+-- Cette fonction ne fonctionne que sur "player".
 function M.FindAura(unit, spellID, filter)
     if unit ~= "player" then return nil end
+    if C_UnitAuras.GetPlayerAuraBySpellID then
+        return C_UnitAuras.GetPlayerAuraBySpellID(spellID) or nil
+    end
+    -- Fallback : pcall pour éviter le crash sur spellId tainté
     local i = 1
     while true do
         local aura = C_UnitAuras.GetAuraDataByIndex(unit, i, filter)
         if not aura then break end
-        if aura.spellId == spellID then return aura end
+        local ok, match = pcall(function() return aura.spellId == spellID end)
+        if ok and match then return aura end
         i = i + 1
     end
     return nil
@@ -105,6 +109,11 @@ function M:PlayAssetSound(relativePath)
 end
 
 function M:UnitHasAuraBySpellID(unit, spellID, filter)
+    -- Pour le joueur : GetPlayerAuraBySpellID évite d'accéder au champ spellId tainté
+    if unit == "player" and C_UnitAuras and C_UnitAuras.GetPlayerAuraBySpellID then
+        return C_UnitAuras.GetPlayerAuraBySpellID(spellID) ~= nil
+    end
+
     local index = 1
     local auraData
 
@@ -115,7 +124,8 @@ function M:UnitHasAuraBySpellID(unit, spellID, filter)
                 return false
             end
 
-            if auraData.spellId == spellID then
+            local ok, match = pcall(function() return auraData.spellId == spellID end)
+            if ok and match then
                 return true
             end
 
