@@ -8,7 +8,17 @@ Write-Host '    LAMENTERS HELPER  -  Updater  ' -ForegroundColor White
 Write-Host '  ================================' -ForegroundColor DarkRed
 Write-Host ''
 
-# ── Mot de passe ──────────────────────────────────────────────────────────────
+# ── Mot de passe (verifie en ligne) ───────────────────────────────────────────
+try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $expectedHash = (Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/AlexDN-dev/LamentersHelper/main/auth.cfg' -UseBasicParsing -ErrorAction Stop).Content.Trim()
+} catch {
+    Write-Host '  [ERREUR] Impossible de verifier le mot de passe (pas de connexion ?).' -ForegroundColor Red
+    Write-Host ''
+    Read-Host '  Appuie sur Entree pour fermer'
+    exit 1
+}
+
 $secure = Read-Host '  Mot de passe' -AsSecureString
 $plain  = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
               [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
@@ -17,7 +27,7 @@ $hash   = [System.BitConverter]::ToString(
                   [System.Text.Encoding]::UTF8.GetBytes($plain)
               )).Replace('-','').ToLower()
 
-if ($hash -ne '404afd754b1f9a6e38df05ff58f318a716541af93411f19f2be730afff6b8b37') {
+if ($hash -ne $expectedHash) {
     Write-Host ''
     Write-Host '  Mot de passe incorrect.' -ForegroundColor Red
     Write-Host ''
@@ -86,7 +96,6 @@ $tmpZip = \"\$env:TEMP\LamentersHelper_update.zip\"
 $tmpDir = \"\$env:TEMP\LamentersHelper_update\"
 
 try {
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     Invoke-WebRequest -Uri $zipUrl -OutFile $tmpZip -UseBasicParsing -ErrorAction Stop
 } catch {
     Write-Host ''
