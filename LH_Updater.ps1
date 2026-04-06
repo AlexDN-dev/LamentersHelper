@@ -46,16 +46,40 @@ try {
     }
 } catch {}
 
-# 2. Scan de tous les disques disponibles
+# 2. Config Battle.net (contient le chemin reel d installation)
+if (-not $wowBase) {
+    $bnConfig = "$env:APPDATA\Battle.net\Battle.net.config"
+    if (Test-Path $bnConfig) {
+        try {
+            $json = Get-Content $bnConfig -Raw | ConvertFrom-Json
+            # Cherche tous les champs contenant un chemin vers WoW
+            $json | ConvertTo-Json -Depth 10 | Select-String -Pattern '"([A-Za-z]:\\[^"]*World of Warcraft[^"]*)"' -AllMatches |
+                ForEach-Object { $_.Matches } | ForEach-Object {
+                    $p = $_.Groups[1].Value -replace '\\\\', '\'
+                    if (-not $wowBase -and (Test-Path "$p\_retail_\Interface\AddOns")) {
+                        $wowBase = $p
+                    }
+                }
+        } catch {}
+    }
+}
+
+# 3. Scan de tous les disques + dossiers utilisateur
 if (-not $wowBase) {
     $drives = (Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -match '^[A-Z]:\\$' }).Root
     $subPaths = @(
         'World of Warcraft',
         'Games\World of Warcraft',
+        'Jeux\World of Warcraft',
         'Program Files\World of Warcraft',
         'Program Files (x86)\World of Warcraft',
-        'Jeux\World of Warcraft',
-        'Battle.net\World of Warcraft'
+        'Battle.net\World of Warcraft',
+        "Users\$env:USERNAME\Documents\World of Warcraft",
+        "Users\$env:USERNAME\Documents\Games\World of Warcraft",
+        "Users\$env:USERNAME\Downloads\World of Warcraft",
+        "Users\$env:USERNAME\Desktop\World of Warcraft",
+        "Users\$env:USERNAME\World of Warcraft",
+        "Users\Public\Documents\World of Warcraft"
     )
     foreach ($drive in $drives) {
         foreach ($sub in $subPaths) {
