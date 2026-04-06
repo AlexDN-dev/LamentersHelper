@@ -6,34 +6,6 @@ Write-Host '    LAMENTERS HELPER  -  Updater  ' -ForegroundColor White
 Write-Host '  ================================' -ForegroundColor DarkRed
 Write-Host ''
 
-# ── Mot de passe (verifie en ligne) ───────────────────────────────────────────
-try {
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    $expectedHash = (Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/AlexDN-dev/LamentersHelper/main/auth.cfg' -UseBasicParsing -ErrorAction Stop).Content.Trim()
-} catch {
-    Write-Host '  [ERREUR] Impossible de verifier le mot de passe (pas de connexion ?).' -ForegroundColor Red
-    Write-Host ''
-    Read-Host '  Appuie sur Entree pour fermer'
-    exit 1
-}
-
-$secure = Read-Host '  Mot de passe' -AsSecureString
-$plain  = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
-              [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure))
-$hash   = [System.BitConverter]::ToString(
-              [System.Security.Cryptography.SHA256]::Create().ComputeHash(
-                  [System.Text.Encoding]::UTF8.GetBytes($plain)
-              )).Replace('-', '').ToLower()
-
-if ($hash -ne $expectedHash) {
-    Write-Host ''
-    Write-Host '  Mot de passe incorrect.' -ForegroundColor Red
-    Write-Host ''
-    Read-Host '  Appuie sur Entree pour fermer'
-    exit 1
-}
-
-Write-Host ''
 
 # ── Detection WoW ─────────────────────────────────────────────────────────────
 $wowBase = $null
