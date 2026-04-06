@@ -38,6 +38,7 @@ Write-Host ''
 # ── Detection WoW ─────────────────────────────────────────────────────────────
 $wowBase = $null
 
+# 1. Registre Windows
 try {
     $reg = Get-ItemProperty 'HKLM:\SOFTWARE\WOW6432Node\Blizzard Entertainment\World of Warcraft' -ErrorAction Stop
     if ($reg.InstallPath -and (Test-Path $reg.InstallPath)) {
@@ -45,23 +46,26 @@ try {
     }
 } catch {}
 
+# 2. Scan de tous les disques disponibles
 if (-not $wowBase) {
-    $candidates = @(
-        'C:\Program Files (x86)\World of Warcraft',
-        'C:\Program Files\World of Warcraft',
-        'D:\World of Warcraft',
-        'D:\Games\World of Warcraft',
-        'E:\World of Warcraft',
-        'E:\Games\World of Warcraft',
-        'C:\Games\World of Warcraft',
-        'D:\Program Files (x86)\World of Warcraft',
-        'D:\Program Files\World of Warcraft'
+    $drives = (Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Root -match '^[A-Z]:\\$' }).Root
+    $subPaths = @(
+        'World of Warcraft',
+        'Games\World of Warcraft',
+        'Program Files\World of Warcraft',
+        'Program Files (x86)\World of Warcraft',
+        'Jeux\World of Warcraft',
+        'Battle.net\World of Warcraft'
     )
-    foreach ($p in $candidates) {
-        if (Test-Path "$p\_retail_\Interface\AddOns") {
-            $wowBase = $p
-            break
+    foreach ($drive in $drives) {
+        foreach ($sub in $subPaths) {
+            $candidate = Join-Path $drive $sub
+            if (Test-Path "$candidate\_retail_\Interface\AddOns") {
+                $wowBase = $candidate
+                break
+            }
         }
+        if ($wowBase) { break }
     }
 }
 
