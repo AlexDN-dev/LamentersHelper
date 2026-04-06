@@ -189,7 +189,7 @@ local function BuildAffichageTab(parent)
             MakeSlider(f,
                 def.key .. "SizeSlider",
                 "Taille", def.sizeMin, def.sizeMax, def.sizeKey,
-                "TOPLEFT", f, "TOPLEFT", 242, rowY - 1,
+                "TOPLEFT", f, "TOPLEFT", 320, rowY - 1,
                 function(v)
                     local ch = M.channels and M.channels[def.key]
                     if ch then

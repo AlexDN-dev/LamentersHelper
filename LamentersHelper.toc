@@ -16,6 +16,7 @@ ui/sound.lua
 
 modules/alerts.lua
 modules/sync.lua
+modules/progress_bars.lua
 boss/imperator/grid.lua
 boss/imperator/alerts.lua
 boss/vorasius/alerts.lua
