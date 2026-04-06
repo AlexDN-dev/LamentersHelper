@@ -197,6 +197,7 @@ local PANELS = {
     vorasius  = { frameKey = "vorasiusFrame",   createFn = "CreateVorasiusPanel"   },
     couronne  = { frameKey = "crownFrame",      createFn = "CreateCrownPanel"      },
     chimaerus = { frameKey = "chimaerUsFrame",  createFn = "CreateChimaerUsPanel"  },
+    beloren   = { frameKey = "belorenFrame",    createFn = "CreateBelorenPanel"    },
     sync      = { frameKey = "syncFrame",       createFn = "CreateSyncPanel"       },
 }
 
