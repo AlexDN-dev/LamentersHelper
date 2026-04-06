@@ -10,8 +10,22 @@ local FONT = "Fonts\\FRIZQT__.TTF"
 -- Texture remplissage : dégradé vertical (style proche BigWigs / PaperDoll)
 local STATUS_TEX = "Interface\\PaperDollInfoFrame\\UI-Character-Skills-Bar"
 
--- Jaune / or sur la texture (multiplie la couleur de la texture)
-local BAR_FILL_R, BAR_FILL_G, BAR_FILL_B = 0.95, 0.82, 0.18
+-- Couleurs par type d'alerte — identiques à text.lua pour la cohérence visuelle
+local ALERT_COLORS = {
+    interrupt = { 1,    0.27, 0.27 },
+    soak      = { 1,    0.9,  0.1  },
+    phase     = { 0.3,  0.85, 1    },
+    private   = { 1,    0.65, 0.2  },
+    global    = { 1,    1,    1    },
+    dispel    = { 1,    0.1,  1    },
+}
+local DEFAULT_BAR_COLOR = { 0.95, 0.82, 0.18 }  -- or/jaune si type non reconnu
+
+local function GetBarColor(alertType)
+    local c = alertType and ALERT_COLORS[alertType]
+    if c then return c[1], c[2], c[3] end
+    return DEFAULT_BAR_COLOR[1], DEFAULT_BAR_COLOR[2], DEFAULT_BAR_COLOR[3]
+end
 
 local function SetBarTextStyle(fs)
     fs:SetFont(FONT, 11, "")
@@ -20,17 +34,19 @@ local function SetBarTextStyle(fs)
     fs:SetShadowOffset(1, -1)
 end
 
-local function ApplyBarFillColor(sb)
-    sb:SetStatusBarColor(BAR_FILL_R, BAR_FILL_G, BAR_FILL_B, 1)
+local function ApplyBarFillColor(sb, alertType)
+    local r, g, b = GetBarColor(alertType)
+    sb:SetStatusBarColor(r, g, b, 1)
 end
 
---- slotIndex 1..4 : positions verticales distinctes au centre-écran
-local SLOT_ANCHORS = {
-    { 0,  140 },
-    { 0,   90 },
-    { 0,   40 },
-    { 0,  -10 },
-}
+--- slotIndex 1..4 : décalage Y relatif par rapport à l'ancre du groupe
+local SLOT_REL_Y = { 140, 90, 40, -10 }
+
+local function GetSlotPosition(slotIndex)
+    local cfgX = (M.config and M.config.barGroupPosX) or 0
+    local cfgY = (M.config and M.config.barGroupPosY) or 0
+    return cfgX, cfgY + (SLOT_REL_Y[slotIndex] or 0)
+end
 
 local function UpdateCountdownTexts(f, timeLeft)
     local title = f._countdownTitle or ""
@@ -48,7 +64,7 @@ local function GetOrCreateBar(slotIndex)
         return bar
     end
 
-    local anchorX, anchorY = unpack(SLOT_ANCHORS[slotIndex] or SLOT_ANCHORS[1])
+    local anchorX, anchorY = GetSlotPosition(slotIndex)
 
     local f = CreateFrame("Frame", "LHProgressBar" .. slotIndex, UIParent, "BackdropTemplate")
     f:SetSize(BAR_W, BAR_H + 10)
@@ -99,12 +115,12 @@ local function GetOrCreateBar(slotIndex)
     return f
 end
 
-function M:ProgressBarSet(slotIndex, min, max, value, titleText)
+function M:ProgressBarSet(slotIndex, min, max, value, titleText, alertType)
     local f = GetOrCreateBar(slotIndex)
     f._countdownTitle = nil
     f.barTitle:SetText(titleText or "")
     f.barTime:SetText(value ~= nil and string.format("%.1f", value) or "")
-    ApplyBarFillColor(f.statusBar)
+    ApplyBarFillColor(f.statusBar, alertType)
     f.statusBar:SetMinMaxValues(min, max)
     f.statusBar:SetValue(value)
     f:Show()
@@ -123,14 +139,14 @@ function M:ProgressBarHide(slotIndex)
 end
 
 --- titleText = libellé fixe à gauche (ex. "underworld") ; les secondes s’affichent à droite et se mettent à jour.
-function M:ProgressBarCountdown(slotIndex, durationSeconds, titleText)
+function M:ProgressBarCountdown(slotIndex, durationSeconds, titleText, alertType)
     if not durationSeconds or durationSeconds <= 0 then
         self:ProgressBarHide(slotIndex)
         return
     end
     local f = GetOrCreateBar(slotIndex)
     f._countdownTitle = titleText or ""
-    ApplyBarFillColor(f.statusBar)
+    ApplyBarFillColor(f.statusBar, alertType)
     f.statusBar:SetMinMaxValues(0, durationSeconds)
     f.statusBar:SetValue(durationSeconds)
     UpdateCountdownTexts(f, durationSeconds)
@@ -158,4 +174,12 @@ end
 
 function M:ProgressBarTest(slotIndex, seconds, titleText)
     self:ProgressBarCountdown(slotIndex or 1, seconds or 12, titleText or "test")
+end
+
+function M:RepositionBars()
+    for slotIndex, f in pairs(M._progressBarSlots) do
+        local x, y = GetSlotPosition(slotIndex)
+        f:ClearAllPoints()
+        f:SetPoint("CENTER", UIParent, "CENTER", x, y)
+    end
 end

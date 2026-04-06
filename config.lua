@@ -30,6 +30,10 @@ local defaults = {
     -- Affichage — options visuelles
     showSpellIcons = false,   -- icônes de sort discrètes à côté du texte
 
+    -- Barres de progression
+    barGroupPosX = 0,
+    barGroupPosY = 0,
+
     -- Grille Imperator
     alwaysShowGrid   = false,
     gridBossName     = "Imperator Averzian",
