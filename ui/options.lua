@@ -226,10 +226,43 @@ local function BuildAffichageTab(parent)
     local iconsCheck = MakeCheck(f, "Afficher les ic\195\180nes de sort  (discret, sur le texte d'alerte)",
         "showSpellIcons", "TOPLEFT", f, "TOPLEFT", 0, baseY - 34)
 
-    SectionHeader(f, "D\195\169veloppement", baseY - 76)
+    SectionHeader(f, "Barres de progression", baseY - 76)
+
+    local barXSlider = MakeSlider(f, "barGroupX", "Position X", -500, 500, "barGroupPosX",
+        "TOPLEFT", f, "TOPLEFT", 0, baseY - 116,
+        function() if M.RepositionBars then M:RepositionBars() end end)
+
+    local barYSlider = MakeSlider(f, "barGroupY", "Position Y", -500, 500, "barGroupPosY",
+        "TOPLEFT", f, "TOPLEFT", 230, baseY - 116,
+        function() if M.RepositionBars then M:RepositionBars() end end)
+
+    local barTestBtn = M.MakeBtn(f, "Tester les barres", 160, 26)
+    barTestBtn:SetPoint("TOPLEFT", f, "TOPLEFT", 0, baseY - 150)
+    barTestBtn:SetScript("OnClick", function()
+        if M.ProgressBarCountdown then
+            M:ProgressBarCountdown(1, 10, "Shadowclaw Slam", "soak")
+            M:ProgressBarCountdown(2, 14, "Ectocloques", "interrupt")
+            M:ProgressBarCountdown(3, 7,  "Grondement Primordial", "phase")
+            M:ProgressBarCountdown(4, 20, "Void Breath", "global")
+        end
+    end)
+
+    local barResetBtn = M.MakeBtn(f, "Reset", 60, 26)
+    barResetBtn:SetPoint("LEFT", barTestBtn, "RIGHT", 6, 0)
+    barResetBtn._txt:SetTextColor(1, 0.40, 0.40)
+    barResetBtn:SetScript("OnClick", function()
+        M.config.barGroupPosX = 0
+        M.config.barGroupPosY = 0
+        if M.SaveConfig then M:SaveConfig() end
+        barXSlider:SetValue(0)
+        barYSlider:SetValue(0)
+        if M.RepositionBars then M:RepositionBars() end
+    end)
+
+    SectionHeader(f, "D\195\169veloppement", baseY - 196)
 
     local debugCheck = MakeCheck(f, "Afficher l'encounterID dans le chat (debug)",
-        "debugEncounter", "TOPLEFT", f, "TOPLEFT", 0, baseY - 110)
+        "debugEncounter", "TOPLEFT", f, "TOPLEFT", 0, baseY - 230)
 
     -- ── OnShow ────────────────────────────────────────────────────────────────
     f:SetScript("OnShow", function()
@@ -251,6 +284,8 @@ local function BuildAffichageTab(parent)
         end
 
         iconsCheck:SetChecked(M.config.showSpellIcons)
+        barXSlider:SetValue(M.config.barGroupPosX or 0)
+        barYSlider:SetValue(M.config.barGroupPosY or 0)
         debugCheck:SetChecked(M.config.debugEncounter)
     end)
 
