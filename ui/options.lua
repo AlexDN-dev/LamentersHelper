@@ -975,8 +975,14 @@ function M:CreateBelorenPanel()
         "  \226\128\162 Piquant Infusé (Héro) : marqué reçoit piquant OPPOSÉ \226\128\148 couleur matching soak\n" ..
         "  \226\128\162 Orbes : ramasser UNIQUEMENT sa propre couleur (ne pas toucher le boss)\n" ..
         "  \226\128\162 Adds Éruption : interrupt par joueur de couleur correspondante SEULEMENT\n" ..
-        "  \226\128\162 Édit du Gardien : chaque tank soak son cône de SA couleur (sinon enrage)\n" ..
-        "  \226\128\162 Phase 2 (30s) : rejoindre zone de sa couleur \226\128\148 DPS l'\197\147uf max !"
+        "  \226\128\162 Édit du Gardien : chaque tank soak son cône SA couleur \226\128\148 |cffff4444BOSS +20% DMG|r pendant l'édit\n" ..
+        "  \226\128\162 Phase 2 (30s) : rejoindre zone de sa couleur \226\128\148 DPS l'\197\147uf max !\n" ..
+        "\n" ..
+        "|cff888888Nerfs (weekly reset) :|r\n" ..
+        "  \226\128\162 Phase 1 \226\128\148 PV \226\128\147 10% Mythique\n" ..
+        "  \226\128\162 \195\137dit du Gardien \226\128\148 boss +20% dmg pendant le cast\n" ..
+        "  \226\128\162 Piquants Infus\195\169s \226\128\148 moins de joueurs cibl\195\169s sur Mythique\n" ..
+        "  \226\128\162 Renaissance / Plong\195\169es \226\128\148 d\195\169g\195\162ts fortement r\195\169duits sur Mythique"
     )
 
     -- ── Aura du joueur ────────────────────────────────────────────────────────
