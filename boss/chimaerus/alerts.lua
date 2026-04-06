@@ -128,7 +128,8 @@ local function OnUpheavalApplied(destName)
         (not isGroupA) and (myGroup == 2 or myGroup == 4)
     )
     if myTurn then
-        ShowPrivate("TON TOUR DE SOAK  — " .. groupLabel, ALNDUST_UPHEAVAL_ID)
+        -- Texte privé sans son supplémentaire (le son soak a déjà joué)
+        M:ShowPrivateText("TON TOUR DE SOAK  — " .. groupLabel, ALNDUST_UPHEAVAL_ID)
     end
 
     if M.config and M.config.debugEncounter then
@@ -241,7 +242,7 @@ SlashCmdList["LHCHIMAERTEST"] = function(arg)
         local isGroupA   = (soakCount % 2 == 1)
         local groupLabel = isGroupA and "GROUPE A (1&3)" or "GROUPE B (2&4)"
         ShowAlert("[UPHEAVAL]  " .. groupLabel .. "  — SOAK !", "soak", ALNDUST_UPHEAVAL_ID)
-        ShowPrivate("TON TOUR DE SOAK  — " .. groupLabel, ALNDUST_UPHEAVAL_ID)
+        M:ShowPrivateText("TON TOUR DE SOAK  — " .. groupLabel, ALNDUST_UPHEAVAL_ID)
     elseif arg == "miasma" then
         miasmaCount = miasmaCount + 1
         local rot = GetMiasmaRotation()
