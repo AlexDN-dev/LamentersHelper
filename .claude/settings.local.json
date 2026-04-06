@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.warcraftlogs.com)",
+      "WebSearch",
+      "WebFetch(domain:www.wowhead.com)",
+      "WebFetch(domain:www.icy-veins.com)",
+      "WebFetch(domain:www.method.gg)",
+      "WebFetch(domain:warcraft.wiki.gg)",
+      "WebFetch(domain:conquestcapped.com)"
+    ]
+  }
+}

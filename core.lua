@@ -26,6 +26,28 @@ end)
 
 M.frame:RegisterEvent("PLAYER_LOGIN")
 M.frame:RegisterEvent("PLAYER_LOGOUT")
+M.frame:RegisterEvent("ENCOUNTER_START")
+M.frame:RegisterEvent("ENCOUNTER_END")
+
+-- Mapping encounterID → clé boss (pour les positions d'ancres par boss)
+local ENCOUNTER_BOSS_KEYS = {
+    [3176] = "imperator",
+    [3177] = "vorasius",
+    [3178] = "chimaerus",
+    [3179] = "salhadaar",
+    [3180] = "vanguard",
+    [3181] = "crown",
+}
+
+M.activeBossKey = nil
+
+function M:ENCOUNTER_START(encounterID)
+    M.activeBossKey = ENCOUNTER_BOSS_KEYS[encounterID]
+end
+
+function M:ENCOUNTER_END()
+    M.activeBossKey = nil
+end
 
 function M:PLAYER_LOGIN()
     if self.InitializeConfig then
