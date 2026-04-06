@@ -25,6 +25,7 @@ boss/drakes/alerts.lua
 boss/vanguard/alerts.lua
 boss/crown/alerts.lua
 boss/chimaerus/alerts.lua
+boss/beloren/alerts.lua
 
 ui/mainpanel.lua
 ui/options.lua

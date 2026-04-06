@@ -60,6 +60,10 @@ local defaults = {
     chimaeraSoakGroupB     = {},   -- Noms joueurs groupes 2&4
     chimaeraMadnessPairs   = {},   -- { {healer="X", partner="Y"}, ... }
 
+    -- Belo'ren — Aura Vide/Lumière (change à chaque essai)
+    -- AUTO = détection via UNIT_AURA | "VOID" | "LIGHT" = override manuel
+    belorenPlayerAura = "AUTO",
+
     -- Positions par boss — { bossKey = { posXKey = val, posYKey = val, ... } }
     -- Si absent pour un boss, fallback sur les positions globales (posX/posY etc.)
     bossAnchorOverrides    = {},

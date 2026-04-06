@@ -13,6 +13,9 @@ local BLISTERBURST_AURA  = 1259186  -- Explosion Cuisante : +100% dégâts reçu
 local SMASHED_AURA       = 1241844  -- Heurtoir : vulnérabilité physique tank (cumulable)
 -- Shadowclaw Slam — pas de spellID direct via timeline (dur=16/136/240)
 local SLAM_SPELL         = 1241844  -- réutilise SMASHED pour l'icône (même sort)
+-- Fixation Ectocloque → joueur (SPELL_AURA_APPLIED depuis l'add)
+-- 0 = catch-all (tout debuff depuis un Ectocloque) → à préciser via debugEncounter
+local FIXATED_SPELL_ID   = 0        -- À CONFIRMER en jeu
 
 -- ─── État du combat ───────────────────────────────────────────────────────────
 local inFight          = false
@@ -22,6 +25,8 @@ local blistered        = false
 local smashedStacks    = 0
 local voidBreathActive = false
 local activeTimers     = {}
+local fixatedPlayers   = {}      -- { [playerName] = true } — joueurs fixés par un Ectocloque
+local classCache       = {}      -- { [playerName] = "CLASSNAME" } — cache classe pour couleurs
 
 local frame = CreateFrame("Frame")
 
@@ -34,6 +39,66 @@ end
 local function ShowPrivate(msg, spellID)
     M:ShowPrivateText(msg, spellID)
     if M.PlayAlertSound then M:PlayAlertSound("private") end
+end
+
+-- ─── Classe et couleur des joueurs (pour la note RL) ─────────────────────────
+-- Construit le cache nom→classe une seule fois, puis réutilise.
+local function BuildClassCache()
+    local n = GetNumGroupMembers()
+    for i = 1, n do
+        local name, _, _, _, _, fileName = GetRaidRosterInfo(i)
+        if name and fileName and fileName ~= "" then
+            classCache[name] = fileName   -- ex: "WARRIOR", "PALADIN", "DRUID"…
+        end
+    end
+    -- S'ajouter soi-même (solo / hors raid)
+    local me = UnitName("player")
+    if me and not classCache[me] then
+        local _, cls = UnitClass("player")
+        if cls then classCache[me] = cls end
+    end
+end
+
+local function ClassColoredName(name)
+    local class = classCache[name]
+    if class and RAID_CLASS_COLORS and RAID_CLASS_COLORS[class] then
+        local c = RAID_CLASS_COLORS[class]
+        return string.format("|cff%02x%02x%02x", c.r * 255, c.g * 255, c.b * 255) .. name .. "|r"
+    end
+    return "|cffffffff" .. name .. "|r"
+end
+
+-- ─── Note RL : liste des joueurs fixés par les Ectocloques ───────────────────
+-- Visible uniquement par "Thiriäll" (guard dans M:ShowRLNote via IsRLNoteOwner).
+local function UpdateFixateNote()
+    local names = {}
+    for name in pairs(fixatedPlayers) do
+        names[#names + 1] = name
+    end
+
+    if #names == 0 then
+        M:HideRLNote()
+        return
+    end
+
+    table.sort(names)
+
+    local colored = {}
+    for _, name in ipairs(names) do
+        colored[#colored + 1] = ClassColoredName(name)
+    end
+
+    -- Affichage en lignes de 3 (mur gauche / mur droit → 3 noms par ligne)
+    local lines = { "|cffffff80FIXATED (" .. #names .. ")|r" }
+    for i = 1, #colored, 3 do
+        local row = {}
+        for j = i, math.min(i + 2, #colored) do
+            row[#row + 1] = colored[j]
+        end
+        lines[#lines + 1] = table.concat(row, "  ")
+    end
+
+    M:ShowRLNote(table.concat(lines, "\n"))
 end
 
 -- ─── Timeline callbacks ───────────────────────────────────────────────────────
@@ -147,6 +212,26 @@ local function OnCLEU()
         end
     end
 
+    -- Fixation Ectocloque → joueur : mise à jour de la note RL
+    -- sourceName = nom de l'Ectocloque, destName = joueur fixé
+    if (event == "SPELL_AURA_APPLIED" or event == "SPELL_AURA_REMOVED")
+        and BLISTERCREEP_NAMES[sourceName] and destName then
+        -- Filtre par spell ID si connu (FIXATED_SPELL_ID > 0), sinon catch-all
+        local isFixation = (FIXATED_SPELL_ID == 0) or (spellID == FIXATED_SPELL_ID)
+        if isFixation then
+            if event == "SPELL_AURA_APPLIED" then
+                fixatedPlayers[destName] = true
+            else
+                fixatedPlayers[destName] = nil
+            end
+            UpdateFixateNote()
+        end
+        if M.config and M.config.debugEncounter then
+            print(string.format("|cff00ff00LH Debug|r ECTO FIXATION %s → %s spellID=%d",
+                event, tostring(destName), spellID or 0))
+        end
+    end
+
     -- Mode debug : log toutes les auras appliquées/retirées sur le joueur
     if M.config and M.config.debugEncounter then
         local myGUID = UnitGUID("player")
@@ -219,6 +304,9 @@ local function ResetState()
     smashedStacks    = 0
     voidBreathActive = false
     activeTimers     = {}
+    fixatedPlayers   = {}
+    classCache       = {}
+    M:HideRLNote()
     UnregisterCLEU()
 end
 
@@ -240,6 +328,7 @@ frame:SetScript("OnEvent", function(_, event, ...)
             ResetState()
             inFight = true
             RegisterCLEU()
+            BuildClassCache()   -- pré-remplit le cache nom→classe pour la note RL
         end
 
     elseif event == "ENCOUNTER_END" then
@@ -317,8 +406,25 @@ SlashCmdList["LHVORASIUSTEST"] = function(arg)
     elseif arg == "smashed" then
         ShowPrivate("SMASHED ×2 — SWAP TANK MAINTENANT !")
 
+    elseif arg == "fixate" then
+        -- Simule la fixation de 6 joueurs (3 mêlée mur gauche + 3 distance mur droit)
+        BuildClassCache()
+        fixatedPlayers = {}
+        local fakeNames = {
+            "Smiths", "Lill\195\164ka", "Wadabloom",   -- mêlée → mur gauche
+            "C\195\164bron", "Gnar", "Thiri\195\163ll", -- distance → mur droit
+        }
+        for _, name in ipairs(fakeNames) do
+            fixatedPlayers[name] = true
+        end
+        UpdateFixateNote()
+
+    elseif arg == "fixateclear" then
+        fixatedPlayers = {}
+        UpdateFixateNote()
+
     else
         print("|cff00ff00LH Vorasius|r  Rôle détecté : |cffffcc00" .. role .. "|r")
-        print("  /lhvoratest [slam | beam | adds | wall | roar | blister | smashed]")
+        print("  /lhvoratest [slam | beam | adds | wall | roar | blister | smashed | fixate | fixateclear]")
     end
 end

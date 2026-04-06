@@ -71,6 +71,7 @@ local BOSS_CHOICES = {
     { key = "vanguard",  label = "Avant-garde"                   },
     { key = "crown",     label = "Couronne"                      },
     { key = "chimaerus", label = "Chimaerus"                     },
+    { key = "beloren",  label = "Belo'ren"                      },
 }
 
 local CHANNEL_DEFS = {
@@ -702,13 +703,15 @@ function M:CreateVorasiusPanel()
     SectionHeader(frame, "Test des alertes", -230)
 
     local TEST_BTNS = {
-        { arg = "slam",    label = "Shadowclaw Slam" },
-        { arg = "beam",    label = "Souffle du Vide" },
-        { arg = "adds",    label = "Ectocloques"     },
-        { arg = "wall",    label = "Mur d\195\169truit"     },
-        { arg = "roar",    label = "Grondement"      },
-        { arg = "blister", label = "Blisterburst"    },
-        { arg = "smashed", label = "Smashed"         },
+        { arg = "slam",       label = "Shadowclaw Slam"  },
+        { arg = "beam",       label = "Souffle du Vide"  },
+        { arg = "adds",       label = "Ectocloques"      },
+        { arg = "wall",       label = "Mur d\195\169truit"      },
+        { arg = "roar",       label = "Grondement"       },
+        { arg = "blister",    label = "Blisterburst"     },
+        { arg = "smashed",    label = "Smashed"          },
+        { arg = "fixate",     label = "Note RL Fixated"  },
+        { arg = "fixateclear",label = "Clear RL Note"    },
     }
 
     local prevTest
@@ -910,6 +913,115 @@ function M:CreateChimaerUsPanel()
         local rot = M.config.chimerusMiasmaRotation or {}
         for i = 1, 4 do miasmaBoxes[i]:SetText(rot[i] or "") end
         RefreshSoakGroups()
+    end)
+
+    return frame
+end
+
+-- ─── Panneau Belo'ren ────────────────────────────────────────────────────────
+
+function M:CreateBelorenPanel()
+    local frame = CreateFrame("Frame", nil, M.content)
+    frame:SetAllPoints(M.content)
+
+    SectionHeader(frame, "Belo'ren, Enfant d'Al'ar — H\195\169ro\195\175que/Mythique", -28)
+
+    -- ── Strat info ───────────────────────────────────────────────────────────
+    local infoBox = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    infoBox:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -70)
+    infoBox:SetWidth(560)
+    infoBox:SetJustifyH("LEFT")
+    infoBox:SetSpacing(3)
+    infoBox:SetTextColor(0.68, 0.68, 0.72)
+    infoBox:SetText(
+        "|cffcc2222Strat guilde|r\n" ..
+        "  \226\128\162 Chaque joueur a une aura |cffb05be8VIDE|r ou |cffffcc00LUMI\195\136RE|r \226\128\148 change \195\160 chaque essai\n" ..
+        "  \226\128\162 Plongées : le marqué va en bordure \226\128\148 joueurs couleur matching viennent soak\n" ..
+        "  \226\128\162 Piquant Infusé (Héro) : marqué reçoit piquant OPPOSÉ \226\128\148 couleur matching soak\n" ..
+        "  \226\128\162 Orbes : ramasser UNIQUEMENT sa propre couleur (ne pas toucher le boss)\n" ..
+        "  \226\128\162 Adds Éruption : interrupt par joueur de couleur correspondante SEULEMENT\n" ..
+        "  \226\128\162 Édit du Gardien : chaque tank soak son cône de SA couleur (sinon enrage)\n" ..
+        "  \226\128\162 Phase 2 (30s) : rejoindre zone de sa couleur \226\128\148 DPS l'\197\147uf max !"
+    )
+
+    -- ── Aura du joueur ────────────────────────────────────────────────────────
+    SectionHeader(frame, "Aura du joueur (change \195\160 chaque essai)", -220)
+
+    local auraInfo = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    auraInfo:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -256)
+    auraInfo:SetTextColor(0.60, 0.60, 0.65)
+    auraInfo:SetText("D\195\169finis ton aura avant chaque pull \226\128\148 l'addon rappellera ta couleur toutes les 60s en combat.")
+
+    local AURA_CHOICES = {
+        { key = "AUTO",  label = "AUTO (d\195\169tection)" },
+        { key = "VOID",  label = "VIDE"                   },
+        { key = "LIGHT", label = "LUMI\195\136RE"         },
+    }
+
+    local auraStatusLabel = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    auraStatusLabel:SetPoint("TOPLEFT", frame, "TOPLEFT", 232, -278)
+    auraStatusLabel:SetText("")
+
+    local function UpdateAuraStatus()
+        local cur = M.config and M.config.belorenPlayerAura or "AUTO"
+        if     cur == "VOID"  then auraStatusLabel:SetText("Actuel : |cffb05be8VIDE|r")
+        elseif cur == "LIGHT" then auraStatusLabel:SetText("Actuel : |cffffcc00LUMI\195\136RE|r")
+        else                       auraStatusLabel:SetText("Actuel : |cff888888AUTO|r")
+        end
+    end
+
+    local auraDD = MakeDropdown(frame, AURA_CHOICES, function(key)
+        M.config.belorenPlayerAura = key
+        if M.SaveConfig then M:SaveConfig() end
+        UpdateAuraStatus()
+    end)
+    auraDD:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -276)
+
+    -- ── Test des alertes ──────────────────────────────────────────────────────
+    SectionHeader(frame, "Test des alertes", -328)
+
+    local TEST_BTNS = {
+        { arg = "dive",      label = "Plongée V/L"        },
+        { arg = "quill",     label = "Piquant Infus\195\169"    },
+        { arg = "edict",     label = "\195\137dit du Gardien"   },
+        { arg = "orbs",      label = "Orbes"              },
+        { arg = "eruption",  label = "\195\137ruption Add"      },
+        { arg = "rebirth",   label = "Renaissance"        },
+        { arg = "deathdrop", label = "Chute Mortelle"     },
+        { arg = "eternal",   label = "Br\195\187lures \195\137tern."  },
+        { arg = "phase2",    label = "Phase 2"            },
+        { arg = "ashen",     label = "B\195\169n\195\169diction Cendre" },
+        { arg = "aura",      label = "Rappel Aura"        },
+    }
+
+    local prevTest
+    for i, t in ipairs(TEST_BTNS) do
+        local col = (i - 1) % 3
+        local row = math.floor((i - 1) / 3)
+        local btn = M.MakeBtn(frame, t.label, 168, 26)
+        if col == 0 then
+            btn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -366 - row * 34)
+        else
+            btn:SetPoint("LEFT", prevTest, "RIGHT", 6, 0)
+        end
+        btn:SetScript("OnClick", function()
+            if SlashCmdList and SlashCmdList["LHBELORENTEST"] then
+                SlashCmdList["LHBELORENTEST"](t.arg)
+            end
+        end)
+        prevTest = btn
+    end
+
+    frame:SetScript("OnShow", function()
+        UpdateAuraStatus()
+        -- Sync le libellé du dropdown avec la config courante
+        local cur = M.config and M.config.belorenPlayerAura or "AUTO"
+        for _, choice in ipairs(AURA_CHOICES) do
+            if choice.key == cur then
+                auraDD:SetText(choice.label)
+                break
+            end
+        end
     end)
 
     return frame
