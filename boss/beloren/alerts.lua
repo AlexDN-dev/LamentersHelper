@@ -333,7 +333,7 @@ local function OnIncubationFlames()
         "PHASE 2 — REJOIGNEZ VOS ZONES  |cffa0ffa0DPS L'ŒUF !|r",
         "phase", INCUBATION_FLAMES_ID
     )
-    ShowPrivate("VA DANS LA ZONE " .. AuraLabel(myA) .. " !", INCUBATION_FLAMES_ID)
+    M:ShowPrivateText("VA DANS LA ZONE " .. AuraLabel(myA) .. " !", INCUBATION_FLAMES_ID)
     M:ProgressBarCountdown(1, 30, "INCUBATION DES FLAMMES", "phase", INCUBATION_FLAMES_ID)
 
     -- Rappel d'aura 3s après la transition (beaucoup de mouvement)
