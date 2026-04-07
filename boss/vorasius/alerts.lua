@@ -132,13 +132,13 @@ local function BuildTimerCallback(d)
             local kills  = mythic and "3 kills/mur" or "2 kills/mur"
             if role == "MELEE" then
                 ShowAlert("ECTOCLOQUES — KITEZ VERS LA GAUCHE ! (" .. kills .. ")", "interrupt")
-                ShowPrivate("TOI → MUR GAUCHE  (tu es mêlée)")
+                M:ShowPrivateText("TOI \226\134\146 MUR GAUCHE  (tu es m\195\170l\195\169e)")
             elseif role == "RANGE" then
                 ShowAlert("ECTOCLOQUES — KITEZ VERS LA DROITE ! (" .. kills .. ")", "interrupt")
-                ShowPrivate("TOI → MUR DROIT  (tu es distance)")
+                M:ShowPrivateText("TOI \226\134\146 MUR DROIT  (tu es distance)")
             elseif role == "HEALER" then
                 ShowAlert("ECTOCLOQUES — DISSIPEZ LES RALENTISSEMENTS !", "interrupt")
-                ShowPrivate("HEALER : dispel le ralentissement des fixated")
+                M:ShowPrivateText("HEALER : dispel le ralentissement des fixated")
             elseif role == "TANK" then
                 ShowAlert("ECTOCLOQUES — GÉREZ LES ADDS ! (" .. kills .. ")", "interrupt")
             else
@@ -397,13 +397,13 @@ SlashCmdList["LHVORASIUSTEST"] = function(arg)
     elseif arg == "adds" then
         if role == "MELEE" then
             ShowAlert("ECTOCLOQUES — KITEZ VERS LA GAUCHE ! (" .. kills .. ")", "interrupt")
-            ShowPrivate("TOI → MUR GAUCHE  (tu es mêlée)")
+            M:ShowPrivateText("TOI \226\134\146 MUR GAUCHE  (tu es m\195\170l\195\169e)")
         elseif role == "RANGE" then
             ShowAlert("ECTOCLOQUES — KITEZ VERS LA DROITE ! (" .. kills .. ")", "interrupt")
-            ShowPrivate("TOI → MUR DROIT  (tu es distance)")
+            M:ShowPrivateText("TOI \226\134\146 MUR DROIT  (tu es distance)")
         elseif role == "HEALER" then
             ShowAlert("ECTOCLOQUES — DISSIPEZ LES RALENTISSEMENTS !", "interrupt")
-            ShowPrivate("HEALER : dispel le ralentissement des fixated")
+            M:ShowPrivateText("HEALER : dispel le ralentissement des fixated")
         elseif role == "TANK" then
             ShowAlert("ECTOCLOQUES — GÉREZ LES ADDS ! (" .. kills .. ")", "interrupt")
         else
