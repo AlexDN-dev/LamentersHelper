@@ -267,15 +267,15 @@ local function BuildAffichageTab(parent)
     end)
 
     MakeSlider(f, "BarWidth", "Largeur", 100, 500, "barWidth",
-        "TOPLEFT", f, "TOPLEFT", 10, barsY - 106,
+        "TOPLEFT", f, "TOPLEFT", 10, barsY - 122,
         function() if M.ResizeBars then M:ResizeBars() end end)
 
     MakeSlider(f, "BarHeight", "Hauteur", 16, 50, "barHeight",
-        "TOPLEFT", f, "TOPLEFT", 10, barsY - 152,
+        "TOPLEFT", f, "TOPLEFT", 10, barsY - 168,
         function() if M.ResizeBars then M:ResizeBars() end end)
 
     -- ── Section : Visuel ──────────────────────────────────────────────────────
-    local visualY = barsY - 195
+    local visualY = barsY - 212
     SectionHeader(f, "Visuel", visualY)
 
     local iconsCheck = MakeCheck(f, "Afficher les ic\195\180nes de sort  (discret, sur le texte d'alerte)",
@@ -1000,13 +1000,7 @@ function M:CreateBelorenPanel()
         "  \226\128\162 Orbes : ramasser UNIQUEMENT sa propre couleur (ne pas toucher le boss)\n" ..
         "  \226\128\162 Adds Éruption : interrupt par joueur de couleur correspondante SEULEMENT\n" ..
         "  \226\128\162 Édit du Gardien : chaque tank soak son cône SA couleur \226\128\148 |cffff4444BOSS +20% DMG|r pendant l'édit\n" ..
-        "  \226\128\162 Phase 2 (30s) : rejoindre zone de sa couleur \226\128\148 DPS l'\197\147uf max !\n" ..
-        "\n" ..
-        "|cff888888Nerfs (weekly reset) :|r\n" ..
-        "  \226\128\162 Phase 1 \226\128\148 PV \226\128\147 10% Mythique\n" ..
-        "  \226\128\162 \195\137dit du Gardien \226\128\148 boss +20% dmg pendant le cast\n" ..
-        "  \226\128\162 Piquants Infus\195\169s \226\128\148 moins de joueurs cibl\195\169s sur Mythique\n" ..
-        "  \226\128\162 Renaissance / Plong\195\169es \226\128\148 d\195\169g\195\162ts fortement r\195\169duits sur Mythique"
+        "  \226\128\162 Phase 2 (30s) : rejoindre zone de sa couleur \226\128\148 DPS l'\197\147uf max !"
     )
 
     -- ── Aura du joueur ────────────────────────────────────────────────────────
