@@ -10,7 +10,6 @@
 core.lua
 config.lua
 
-ui/frame.lua
 ui/text.lua
 ui/sound.lua
 
