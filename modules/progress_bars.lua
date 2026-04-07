@@ -182,3 +182,52 @@ function M:RepositionBars()
         f:SetPoint("CENTER", UIParent, "CENTER", x, y)
     end
 end
+
+-- ─── Drag interactif (depuis le panneau d'options) ────────────────────────────
+local _drag = { on = false, sx = 0, sy = 0, cx = 0, cy = 0, cb = nil }
+
+function M:EnableBarDrag(onMove)
+    _drag.cb = onMove
+    _drag.on = false
+    self:ProgressBarCountdown(1, 60, "D\195\169place les barres", "soak")
+    self:ProgressBarCountdown(2, 58, "Fearsome Cry \226\128\148 INTERRUPT", "interrupt")
+    self:ProgressBarCountdown(3, 56, "Phase Transition", "phase")
+    self:ProgressBarCountdown(4, 54, "Void Breath", "global")
+
+    local f = GetOrCreateBar(1)
+    f:EnableMouse(true)
+    f:SetScript("OnMouseDown", function(_, btn)
+        if btn ~= "LeftButton" then return end
+        _drag.on = true
+        _drag.sx, _drag.sy = GetCursorPosition()
+        _drag.cx = M.config.barGroupPosX or 0
+        _drag.cy = M.config.barGroupPosY or 0
+    end)
+    f:SetScript("OnMouseUp", function(_, btn)
+        if btn ~= "LeftButton" then return end
+        _drag.on = false
+        if M.SaveConfig then M:SaveConfig() end
+    end)
+    f:SetScript("OnUpdate", function(_)
+        if not _drag.on then return end
+        local mx, my = GetCursorPosition()
+        local sc = UIParent:GetEffectiveScale()
+        M.config.barGroupPosX = math.floor(_drag.cx + (mx - _drag.sx) / sc)
+        M.config.barGroupPosY = math.floor(_drag.cy + (my - _drag.sy) / sc)
+        M:RepositionBars()
+        if _drag.cb then _drag.cb() end
+    end)
+end
+
+function M:DisableBarDrag()
+    _drag.on = false
+    _drag.cb = nil
+    local f = M._progressBarSlots[1]
+    if f then
+        f:EnableMouse(false)
+        f:SetScript("OnMouseDown", nil)
+        f:SetScript("OnMouseUp", nil)
+        f:SetScript("OnUpdate", nil)
+    end
+    for i = 1, 4 do self:ProgressBarHide(i) end
+end

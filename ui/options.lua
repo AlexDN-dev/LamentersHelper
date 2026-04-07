@@ -157,16 +157,13 @@ local function BuildAffichageTab(parent)
     ddBtn:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -60)
 
     -- ── Lignes par canal ──────────────────────────────────────────────────────
-    local rowY     = -100
-    local rowGap   = 38
+    local rowY       = -100
+    local rowGap     = 38
     local toggleBtns = {}
-
-    local isOwner = (UnitName("player") == RL_NOTE_PLAYER)
+    local isOwner    = (UnitName("player") == RL_NOTE_PLAYER)
 
     for _, def in ipairs(CHANNEL_DEFS) do
-        if def.key == "rlNote" and not isOwner then
-            -- Note RL : masquée pour les non-propriétaires
-        else
+        if not (def.key == "rlNote" and not isOwner) then
             local r2, g2, b2 = unpack(def.color)
 
             local colorBar = f:CreateTexture(nil, "ARTWORK")
@@ -219,50 +216,69 @@ local function BuildAffichageTab(parent)
         end
     end
 
-    -- ── Section : Visuel ──────────────────────────────────────────────────────
-    local baseY = rowY - 16
-    SectionHeader(f, "Visuel", baseY)
+    -- ── Section : Barres de progression ──────────────────────────────────────
+    local barsY = rowY - 20
+    SectionHeader(f, "Barres de progression", barsY)
 
-    local iconsCheck = MakeCheck(f, "Afficher les ic\195\180nes de sort  (discret, sur le texte d'alerte)",
-        "showSpellIcons", "TOPLEFT", f, "TOPLEFT", 0, baseY - 34)
+    local barDragActive = false
 
-    SectionHeader(f, "Barres de progression", baseY - 76)
+    local barMoveBtn = M.MakeBtn(f, "D\195\169placer les barres", 160, 26)
+    barMoveBtn:SetPoint("TOPLEFT", f, "TOPLEFT", 0, barsY - 36)
 
-    local barXSlider = MakeSlider(f, "barGroupX", "Position X", -500, 500, "barGroupPosX",
-        "TOPLEFT", f, "TOPLEFT", 0, baseY - 116,
-        function() if M.RepositionBars then M:RepositionBars() end end)
-
-    local barYSlider = MakeSlider(f, "barGroupY", "Position Y", -500, 500, "barGroupPosY",
-        "TOPLEFT", f, "TOPLEFT", 230, baseY - 116,
-        function() if M.RepositionBars then M:RepositionBars() end end)
+    local barMoveReset = M.MakeBtn(f, "Reset", 60, 26)
+    barMoveReset:SetPoint("LEFT", barMoveBtn, "RIGHT", 8, 0)
+    barMoveReset._txt:SetTextColor(1, 0.40, 0.40)
 
     local barTestBtn = M.MakeBtn(f, "Tester les barres", 160, 26)
-    barTestBtn:SetPoint("TOPLEFT", f, "TOPLEFT", 0, baseY - 150)
+    barTestBtn:SetPoint("TOPLEFT", f, "TOPLEFT", 0, barsY - 70)
+
+    local function SetBarDragState(active)
+        barDragActive = active
+        if active then
+            barMoveBtn._bg:SetColorTexture(R, G, B, 0.65)
+            barMoveBtn._txt:SetTextColor(1, 1, 1)
+            if M.EnableBarDrag then M:EnableBarDrag() end
+        else
+            barMoveBtn._bg:SetColorTexture(0.11, 0.11, 0.14, 1)
+            barMoveBtn._txt:SetTextColor(0.65, 0.65, 0.68)
+            if M.DisableBarDrag then M:DisableBarDrag() end
+        end
+    end
+
+    barMoveBtn:SetScript("OnClick", function()
+        SetBarDragState(not barDragActive)
+    end)
+
+    barMoveReset:SetScript("OnClick", function()
+        M.config.barGroupPosX = 0
+        M.config.barGroupPosY = 0
+        if M.SaveConfig then M:SaveConfig() end
+        if M.RepositionBars then M:RepositionBars() end
+    end)
+
     barTestBtn:SetScript("OnClick", function()
+        if barDragActive then SetBarDragState(false) end
         if M.ProgressBarCountdown then
             M:ProgressBarCountdown(1, 10, "Shadowclaw Slam", "soak")
-            M:ProgressBarCountdown(2, 14, "Ectocloques", "interrupt")
-            M:ProgressBarCountdown(3, 7,  "Grondement Primordial", "phase")
+            M:ProgressBarCountdown(2, 14, "Fearsome Cry \226\128\148 INTERRUPT", "interrupt")
+            M:ProgressBarCountdown(3,  7, "Phase Transition", "phase")
             M:ProgressBarCountdown(4, 20, "Void Breath", "global")
         end
     end)
 
-    local barResetBtn = M.MakeBtn(f, "Reset", 60, 26)
-    barResetBtn:SetPoint("LEFT", barTestBtn, "RIGHT", 6, 0)
-    barResetBtn._txt:SetTextColor(1, 0.40, 0.40)
-    barResetBtn:SetScript("OnClick", function()
-        M.config.barGroupPosX = 0
-        M.config.barGroupPosY = 0
-        if M.SaveConfig then M:SaveConfig() end
-        barXSlider:SetValue(0)
-        barYSlider:SetValue(0)
-        if M.RepositionBars then M:RepositionBars() end
-    end)
+    -- ── Section : Visuel ──────────────────────────────────────────────────────
+    local visualY = barsY - 112
+    SectionHeader(f, "Visuel", visualY)
 
-    SectionHeader(f, "D\195\169veloppement", baseY - 196)
+    local iconsCheck = MakeCheck(f, "Afficher les ic\195\180nes de sort  (discret, sur le texte d'alerte)",
+        "showSpellIcons", "TOPLEFT", f, "TOPLEFT", 0, visualY - 34)
+
+    -- ── Section : D\195\169veloppement ─────────────────────────────────────────────
+    local devY = visualY - 80
+    SectionHeader(f, "D\195\169veloppement", devY)
 
     local debugCheck = MakeCheck(f, "Afficher l'encounterID dans le chat (debug)",
-        "debugEncounter", "TOPLEFT", f, "TOPLEFT", 0, baseY - 230)
+        "debugEncounter", "TOPLEFT", f, "TOPLEFT", 0, devY - 34)
 
     -- ── OnShow ────────────────────────────────────────────────────────────────
     f:SetScript("OnShow", function()
@@ -277,15 +293,15 @@ local function BuildAffichageTab(parent)
             end
         end
 
-        -- Sync lignes texte
         for _, tbtn in ipairs(toggleBtns) do
             local ch = M.channels and M.channels[tbtn.channelKey]
             if ch then tbtn:SetText(ch.anchorVisible and "Cacher" or "Afficher") end
         end
 
+        -- Désactive le drag si on revient sur l'onglet
+        if barDragActive then SetBarDragState(false) end
+
         iconsCheck:SetChecked(M.config.showSpellIcons)
-        barXSlider:SetValue(M.config.barGroupPosX or 0)
-        barYSlider:SetValue(M.config.barGroupPosY or 0)
         debugCheck:SetChecked(M.config.debugEncounter)
     end)
 
