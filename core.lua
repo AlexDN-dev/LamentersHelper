@@ -1,4 +1,5 @@
 local addonName, M = ...
+LamentersHelper = M   -- exposition globale pour /run et outils de debug
 
 -- GetPlayerAuraBySpellID retourne l'aura directement sans exposer le champ spellId tainté.
 -- Comparer aura.spellId (Secret Value) via GetAuraDataByIndex cause un taint → bloqué par Blizzard.
@@ -41,6 +42,7 @@ local ENCOUNTER_BOSS_KEYS = {
     [3179] = "salhadaar",
     [3180] = "vanguard",
     [3181] = "crown",
+    [3182] = "beloren",
     [3306] = "chimaerus",  -- Chimaerus (TheDreamrift — confirmé BigWigs Chimaerus.lua)
 }
 
