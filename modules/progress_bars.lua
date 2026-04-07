@@ -91,16 +91,16 @@ local function GetOrCreateBar(slotIndex)
     sbBg:SetAllPoints()
     sbBg:SetColorTexture(0.08, 0.08, 0.10, 1)
 
-    -- Titre (gauche)
-    local barTitle = f:CreateFontString(nil, "OVERLAY")
-    barTitle:SetPoint("LEFT",  f, "LEFT",  8, 0)
-    barTitle:SetPoint("RIGHT", f, "CENTER", -4, 0)
+    -- Titre (gauche) — parenté à sb pour s'afficher au-dessus du fill
+    local barTitle = sb:CreateFontString(nil, "OVERLAY")
+    barTitle:SetPoint("LEFT",  sb, "LEFT",  8, 0)
+    barTitle:SetPoint("RIGHT", sb, "CENTER", -4, 0)
     barTitle:SetJustifyH("LEFT")
     SetBarTextStyle(barTitle)
 
     -- Timer (droite)
-    local barTime = f:CreateFontString(nil, "OVERLAY")
-    barTime:SetPoint("RIGHT", f, "RIGHT", -8, 0)
+    local barTime = sb:CreateFontString(nil, "OVERLAY")
+    barTime:SetPoint("RIGHT", sb, "RIGHT", -8, 0)
     barTime:SetJustifyH("RIGHT")
     SetBarTextStyle(barTime)
 
