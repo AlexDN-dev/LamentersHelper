@@ -102,8 +102,13 @@ local function OnUnitAura(unit)
     if exec and not trackedAuras.exec then
         trackedAuras.exec = true
         ShowPrivate("EXECUTION SENTENCE — NE SUPERPOSEZ PAS !", SPELL_EXEC)
+        local dur = (exec.expirationTime and exec.expirationTime > 0)
+                    and (exec.expirationTime - GetTime())
+                    or (exec.duration or 15)
+        M:ProgressBarCountdown(1, dur, "EXECUTION SENTENCE", "soak", SPELL_EXEC)
     elseif not exec then
         trackedAuras.exec = nil
+        M:ProgressBarHide(1)
     end
     local blind = C_UnitAuras.GetPlayerAuraBySpellID(SPELL_BLIND)
     if blind and not trackedAuras.blind then
@@ -118,6 +123,7 @@ local function ResetState()
     inFight = false
     trackedAuras = {}
     activeTimers = {}
+    M:ProgressBarHide(1)
 end
 
 frame:RegisterEvent("ENCOUNTER_START")

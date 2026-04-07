@@ -1,13 +1,15 @@
 local addonName, M = ...
 
--- Barres type boss mod : texture en dégradé, texte dans la barre (titre à gauche, secondes à droite).
+-- Barres type boss mod : icone + nom d'abilite a gauche, timer a droite.
 
 M._progressBarSlots = M._progressBarSlots or {}
 
-local BAR_W, BAR_H = 320, 28
-local FONT         = "Fonts\\FRIZQT__.TTF"
-local FONT_SIZE    = 13
-local SOLID_TEX    = "Interface\\Buttons\\WHITE8X8"
+local BAR_W, BAR_H  = 320, 28
+local ICON_SIZE     = 22
+local ICON_PAD      = 4
+local FONT          = "Fonts\\FRIZQT__.TTF"
+local FONT_SIZE     = 13
+local SOLID_TEX     = "Interface\\Buttons\\WHITE8X8"
 
 local ALERT_COLORS = {
     interrupt = { 1,    0.27, 0.27 },
@@ -55,6 +57,25 @@ local function UpdateCountdownTexts(f, timeLeft)
     end
 end
 
+-- Applique l'icone et reposisionne le titre en consequence.
+local function SetBarIcon(f, spellID)
+    if spellID and spellID > 0 then
+        local iconID = C_Spell.GetSpellTexture(spellID)
+        if iconID then
+            f.iconTex:SetTexture(iconID)
+            f.iconTex:Show()
+            f.barTitle:ClearAllPoints()
+            f.barTitle:SetPoint("LEFT",  f.statusBar, "LEFT",  3 + ICON_SIZE + ICON_PAD, 0)
+            f.barTitle:SetPoint("RIGHT", f.statusBar, "CENTER", -4, 0)
+            return
+        end
+    end
+    f.iconTex:Hide()
+    f.barTitle:ClearAllPoints()
+    f.barTitle:SetPoint("LEFT",  f.statusBar, "LEFT",  8, 0)
+    f.barTitle:SetPoint("RIGHT", f.statusBar, "CENTER", -4, 0)
+end
+
 local function GetOrCreateBar(slotIndex)
     local bar = M._progressBarSlots[slotIndex]
     if bar then return bar end
@@ -67,7 +88,7 @@ local function GetOrCreateBar(slotIndex)
     f:SetPoint("CENTER", UIParent, "CENTER", anchorX, anchorY)
     f:SetFrameStrata("HIGH")
 
-    -- Fond très sombre
+    -- Fond tres sombre
     local bgTex = f:CreateTexture(nil, "BACKGROUND")
     bgTex:SetAllPoints()
     bgTex:SetColorTexture(0.04, 0.04, 0.06, 0.96)
@@ -86,24 +107,32 @@ local function GetOrCreateBar(slotIndex)
     sb:SetStatusBarTexture(SOLID_TEX)
     ApplyBarFillColor(sb)
 
-    -- Fond sombre derrière le fill
+    -- Fond sombre derriere le fill
     local sbBg = sb:CreateTexture(nil, "BACKGROUND")
     sbBg:SetAllPoints()
     sbBg:SetColorTexture(0.08, 0.08, 0.10, 1)
 
-    -- Titre (gauche) — parenté à sb pour s'afficher au-dessus du fill
+    -- Icone (gauche, dans sb pour passer au-dessus du fill)
+    local iconTex = sb:CreateTexture(nil, "OVERLAY")
+    iconTex:SetSize(ICON_SIZE, ICON_SIZE)
+    iconTex:SetPoint("LEFT", sb, "LEFT", 3, 0)
+    iconTex:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+    iconTex:Hide()
+
+    -- Titre (gauche, dans sb — reancre par SetBarIcon)
     local barTitle = sb:CreateFontString(nil, "OVERLAY")
     barTitle:SetPoint("LEFT",  sb, "LEFT",  8, 0)
     barTitle:SetPoint("RIGHT", sb, "CENTER", -4, 0)
     barTitle:SetJustifyH("LEFT")
     SetBarTextStyle(barTitle)
 
-    -- Timer (droite)
+    -- Timer (droite, dans sb)
     local barTime = sb:CreateFontString(nil, "OVERLAY")
     barTime:SetPoint("RIGHT", sb, "RIGHT", -8, 0)
     barTime:SetJustifyH("RIGHT")
     SetBarTextStyle(barTime)
 
+    f.iconTex   = iconTex
     f.barTitle  = barTitle
     f.barTime   = barTime
     f.statusBar = sb
@@ -114,7 +143,7 @@ local function GetOrCreateBar(slotIndex)
     return f
 end
 
-function M:ProgressBarSet(slotIndex, min, max, value, titleText, alertType)
+function M:ProgressBarSet(slotIndex, min, max, value, titleText, alertType, spellID)
     local f = GetOrCreateBar(slotIndex)
     f._countdownTitle = nil
     f.barTitle:SetText(titleText or "")
@@ -122,6 +151,7 @@ function M:ProgressBarSet(slotIndex, min, max, value, titleText, alertType)
     ApplyBarFillColor(f.statusBar, alertType)
     f.statusBar:SetMinMaxValues(min, max)
     f.statusBar:SetValue(value)
+    SetBarIcon(f, spellID)
     f:Show()
 end
 
@@ -137,8 +167,9 @@ function M:ProgressBarHide(slotIndex)
     end
 end
 
---- titleText = libellé fixe à gauche (ex. "underworld") ; les secondes s’affichent à droite et se mettent à jour.
-function M:ProgressBarCountdown(slotIndex, durationSeconds, titleText, alertType)
+--- titleText = nom de l'abilite en majuscules (ex. "CONSUME") ; timer a droite.
+--- spellID optionnel : affiche l'icone du sort a gauche du texte.
+function M:ProgressBarCountdown(slotIndex, durationSeconds, titleText, alertType, spellID)
     if not durationSeconds or durationSeconds <= 0 then
         self:ProgressBarHide(slotIndex)
         return
@@ -148,6 +179,7 @@ function M:ProgressBarCountdown(slotIndex, durationSeconds, titleText, alertType
     ApplyBarFillColor(f.statusBar, alertType)
     f.statusBar:SetMinMaxValues(0, durationSeconds)
     f.statusBar:SetValue(durationSeconds)
+    SetBarIcon(f, spellID)
     UpdateCountdownTexts(f, durationSeconds)
     f:Show()
 

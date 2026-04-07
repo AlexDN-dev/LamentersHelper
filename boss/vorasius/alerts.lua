@@ -197,7 +197,11 @@ local function OnCLEU()
         if spellID == VOID_BREATH_ID and not voidBreathActive then
             voidBreathActive = true
             ShowAlert("SOUFFLE DU VIDE — OBSERVEZ LE DÉPART DU RAYON !", "phase", VOID_BREATH_ID)
-            C_Timer.After(16, function() voidBreathActive = false end)
+            M:ProgressBarCountdown(3, 16, "SOUFFLE DU VIDE", "phase", VOID_BREATH_ID)
+            C_Timer.After(16, function()
+                voidBreathActive = false
+                M:ProgressBarHide(3)
+            end)
         end
     end
 
@@ -256,7 +260,7 @@ local function OnUnitAura(unit)
         local dur = (blister.expirationTime and blister.expirationTime > 0)
                     and (blister.expirationTime - GetTime())
                     or (blister.duration or 30)
-        M:ProgressBarCountdown(1, dur, "BLISTERBURST — +100% DMG", "soak")
+        M:ProgressBarCountdown(1, dur, "BLISTERBURST", "soak", BLISTERBURST_AURA)
     elseif not blister then
         blistered = false
         M:ProgressBarHide(1)
@@ -276,7 +280,7 @@ local function OnUnitAura(unit)
             local timeLeft = (aura.expirationTime and aura.expirationTime > 0)
                              and (aura.expirationTime - GetTime())
                              or (aura.duration or 20)
-            M:ProgressBarCountdown(2, timeLeft, "SMASHED \215" .. stacks, "interrupt")
+            M:ProgressBarCountdown(2, timeLeft, "SMASHED \215" .. stacks, "interrupt", SMASHED_AURA)
         end
     else
         smashedStacks = 0

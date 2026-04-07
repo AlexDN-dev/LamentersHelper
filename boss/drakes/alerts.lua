@@ -73,8 +73,13 @@ local function OnUnitAura(unit)
     if nullzone and not trackedAuras.nullzone then
         trackedAuras.nullzone = true
         ShowPrivate("NULLZONE — BOUGEZ !", SPELL_NULLZONE)
+        local dur = (nullzone.expirationTime and nullzone.expirationTime > 0)
+                    and (nullzone.expirationTime - GetTime())
+                    or (nullzone.duration or 10)
+        M:ProgressBarCountdown(1, dur, "NULLZONE", "soak", SPELL_NULLZONE)
     elseif not nullzone then
         trackedAuras.nullzone = nil
+        M:ProgressBarHide(1)
     end
 
     local diminish = C_UnitAuras.GetPlayerAuraBySpellID(SPELL_DIMINISH)
@@ -90,6 +95,7 @@ local function ResetState()
     inFight = false
     trackedAuras = {}
     activeTimers = {}
+    M:ProgressBarHide(1)
 end
 
 frame:RegisterEvent("ENCOUNTER_START")

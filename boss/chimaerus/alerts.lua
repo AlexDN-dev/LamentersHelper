@@ -111,7 +111,7 @@ local function OnRiftMadnessApplied(destName)
         C_Timer.After(0, function()
             local aura = C_UnitAuras.GetPlayerAuraBySpellID(RIFT_MADNESS_ID)
             local dur  = aura and aura.duration or 30
-            M:ProgressBarCountdown(2, dur, "RETOUR DU RIFT", "phase")
+            M:ProgressBarCountdown(2, dur, "RIFT MADNESS", "phase", RIFT_MADNESS_ID)
         end)
     end
 
@@ -172,7 +172,7 @@ end
 -- ─── Consume : canal boss → tuer les adds ────────────────────────────────────
 local function OnConsumeCast()
     ShowAlert("CONSUME — TUEZ LES ADDS RESTANTS !", "phase", CONSUME_ID)
-    M:ProgressBarCountdown(1, 10, "CONSUME — TUEZ LES ADDS", "phase")
+    M:ProgressBarCountdown(1, 10, "CONSUME", "phase", CONSUME_ID)
 end
 
 -- ─── Corrupted Devastation : Phase 2 ligne ───────────────────────────────────

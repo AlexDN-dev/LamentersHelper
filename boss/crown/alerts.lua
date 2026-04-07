@@ -120,13 +120,22 @@ local function BuildTimerCallback(d, dExact)
 
     elseif stage == 3 then
         if d == 60 or d == 59 then
-            return function() ShowAlert("DEVOURING COSMOS — PRENEZ LES PLUMES !", "phase") end
+            return function()
+                ShowAlert("DEVOURING COSMOS — PRENEZ LES PLUMES !", "phase")
+                M:ProgressBarCountdown(1, d, "DEVOURING COSMOS", "phase")
+            end
         elseif d == 30 or d == 29 then
             return function() ShowAlert("NULL CORONA — SOIN À FOND !", nil, SPELL_NULL_CORONA) end
         elseif d == 39 or d == 21 then
-            return function() ShowAlert("ASPECT OF THE END — RANGED > MÊLÉE > TANK !", "phase", SPELL_ASPECT) end
+            return function()
+                ShowAlert("ASPECT OF THE END — RANGED > M\195\138L\195\137E > TANK !", "phase", SPELL_ASPECT)
+                M:ProgressBarCountdown(2, d, "ASPECT OF THE END", "phase", SPELL_ASPECT)
+            end
         elseif d == 9 or d == 8 then
-            return function() ShowAlert("ASPECT OF THE END — RANGED > MÊLÉE > TANK !", "phase", SPELL_ASPECT) end
+            return function()
+                ShowAlert("ASPECT OF THE END — RANGED > M\195\138L\195\137E > TANK !", "phase", SPELL_ASPECT)
+                M:ProgressBarCountdown(2, d, "ASPECT OF THE END", "phase", SPELL_ASPECT)
+            end
         end
     end
 
@@ -206,6 +215,8 @@ local function ResetState()
     activeTimers = {}
     stage = 1
     dur4Count = 0
+    M:ProgressBarHide(1)
+    M:ProgressBarHide(2)
 end
 
 frame:RegisterEvent("ENCOUNTER_START")
