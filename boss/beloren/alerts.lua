@@ -6,7 +6,7 @@ local addonName, M = ...
 -- qui interrompt les adds, qui soak les cônes tanks.
 -- IMPORTANT : eventInfo.spellID tainté en Midnight → identification Timeline par durée.
 -- CLEU utilisé pour : auras joueurs, casts boss/adds, marqueurs de soak.
-local ENCOUNTER_ID = 3183   -- PLACEHOLDER — à confirmer via debugEncounter
+local ENCOUNTER_ID = 3182   -- à confirmer via debugEncounter si incorrect
 
 -- ─── Spell IDs ────────────────────────────────────────────────────────────────
 
