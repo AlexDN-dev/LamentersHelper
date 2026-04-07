@@ -266,8 +266,16 @@ local function BuildAffichageTab(parent)
         end
     end)
 
+    MakeSlider(f, "BarWidth", "Largeur", 100, 500, "barWidth",
+        "TOPLEFT", f, "TOPLEFT", 10, barsY - 106,
+        function() if M.ResizeBars then M:ResizeBars() end end)
+
+    MakeSlider(f, "BarHeight", "Hauteur", 16, 50, "barHeight",
+        "TOPLEFT", f, "TOPLEFT", 10, barsY - 152,
+        function() if M.ResizeBars then M:ResizeBars() end end)
+
     -- ── Section : Visuel ──────────────────────────────────────────────────────
-    local visualY = barsY - 112
+    local visualY = barsY - 195
     SectionHeader(f, "Visuel", visualY)
 
     local iconsCheck = MakeCheck(f, "Afficher les ic\195\180nes de sort  (discret, sur le texte d'alerte)",

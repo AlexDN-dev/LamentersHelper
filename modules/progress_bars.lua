@@ -4,7 +4,13 @@ local addonName, M = ...
 
 M._progressBarSlots = M._progressBarSlots or {}
 
-local BAR_W, BAR_H  = 320, 28
+local BAR_W_DEFAULT = 320
+local BAR_H_DEFAULT = 28
+
+local function GetBarSize()
+    return (M.config and M.config.barWidth  or BAR_W_DEFAULT),
+           (M.config and M.config.barHeight or BAR_H_DEFAULT)
+end
 local ICON_SIZE     = 22
 local ICON_PAD      = 4
 local FONT          = "Fonts\\FRIZQT__.TTF"
@@ -83,8 +89,9 @@ local function GetOrCreateBar(slotIndex)
     local anchorX, anchorY = GetSlotPosition(slotIndex)
 
     -- Conteneur
+    local w, h = GetBarSize()
     local f = CreateFrame("Frame", "LHProgressBar" .. slotIndex, UIParent)
-    f:SetSize(BAR_W, BAR_H)
+    f:SetSize(w, h)
     f:SetPoint("CENTER", UIParent, "CENTER", anchorX, anchorY)
     f:SetFrameStrata("HIGH")
 
@@ -212,6 +219,13 @@ function M:RepositionBars()
         local x, y = GetSlotPosition(slotIndex)
         f:ClearAllPoints()
         f:SetPoint("CENTER", UIParent, "CENTER", x, y)
+    end
+end
+
+function M:ResizeBars()
+    local w, h = GetBarSize()
+    for _, f in pairs(M._progressBarSlots) do
+        f:SetSize(w, h)
     end
 end
 
