@@ -37,10 +37,11 @@ M.frame:RegisterEvent("ENCOUNTER_END")
 local ENCOUNTER_BOSS_KEYS = {
     [3176] = "imperator",
     [3177] = "vorasius",
-    [3178] = "chimaerus",
+    [3178] = "drakes",     -- Vaelgor & Ezzorak (confirmé BigWigs VaelgorAndEzzorak.lua)
     [3179] = "salhadaar",
     [3180] = "vanguard",
     [3181] = "crown",
+    [3306] = "chimaerus",  -- Chimaerus (TheDreamrift — confirmé BigWigs Chimaerus.lua)
 }
 
 M.activeBossKey = nil
