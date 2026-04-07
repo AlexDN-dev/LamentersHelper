@@ -3,7 +3,7 @@ local addonName, M = ...
 -- Chimaerus the Undreamt God — The Voidspire (Midnight 12.0) — Mythique
 -- IMPORTANT: eventInfo.spellID tainté en Midnight → identification par durée.
 -- CLEU utilisé pour auras et casts adds/boss.
-local ENCOUNTER_ID = 3178   -- à confirmer via debugEncounter
+local ENCOUNTER_ID = 3306   -- confirmé BigWigs TheDreamrift/Chimaerus.lua
 
 -- ─── Spell IDs ────────────────────────────────────────────────────────────────
 -- Auras CLEU (SPELL_AURA_APPLIED)
