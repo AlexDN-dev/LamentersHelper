@@ -406,8 +406,8 @@ end
 -- ─── Timeline : Échos Rayonnants ─────────────────────────────────────────────
 -- Les orbes sont un event récurrent → durée à confirmer via debugEncounter.
 local function BuildTimerCallback(d)
-    -- Échos Rayonnants — 50s (confirme BigWigs MarchOnQuelDanas/Beloren.lua)
-    if d == 50 or d == 49 or d == 51 then
+    -- Échos Rayonnants — durée à confirmer en jeu via debugEncounter
+    if d == 45 or d == 46 or d == 47 then
         return function() OnRadiantEchoes() end
     end
     return nil
