@@ -33,6 +33,8 @@ local defaults = {
     -- Barres de progression
     barGroupPosX = 0,
     barGroupPosY = 0,
+    barWidth     = 320,
+    barHeight    = 28,
 
     -- Grille Imperator
     alwaysShowGrid   = false,
@@ -63,6 +65,11 @@ local defaults = {
     chimaeraSoakGroupA     = {},   -- Noms joueurs groupes 1&3
     chimaeraSoakGroupB     = {},   -- Noms joueurs groupes 2&4
     chimaeraMadnessPairs   = {},   -- { {healer="X", partner="Y"}, ... }
+
+    -- L'ura — Jeu de mémoire
+    luraDiagX      = 0,
+    luraDiagY      = 150,
+    luraHeroicMode = true,
 
     -- Belo'ren — Aura Vide/Lumière (change à chaque essai)
     -- AUTO = détection via UNIT_AURA | "VOID" | "LIGHT" = override manuel

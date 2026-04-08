@@ -1086,6 +1086,89 @@ function M:CreateBelorenPanel()
     return frame
 end
 
+-- ─── Panneau Glas de minuit (L'ura) ──────────────────────────────────────────
+
+function M:CreateGlasMinuitPanel()
+    local frame = CreateFrame("Frame", nil, M.content)
+    frame:SetAllPoints(M.content)
+
+    SectionHeader(frame, "L'ura — Midnight Falls", -28)
+
+    -- Info mécanique
+    local infoBox = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    infoBox:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -72)
+    infoBox:SetWidth(580)
+    infoBox:SetJustifyH("LEFT")
+    infoBox:SetSpacing(3)
+    infoBox:SetTextColor(0.68, 0.68, 0.72)
+    infoBox:SetText(
+        "|cffcc2222Jeu de m\195\169moire \226\128\148 Runes|r\n" ..
+        "  \226\128\162 Une personne d\195\169sign\195\169e lit l'ordre et appuie sur les macros\n" ..
+        "  \226\128\162 Le diagramme se met \195\160 jour en temps r\195\169el pour tout le raid\n" ..
+        "  \226\128\162 Personne d'autre ne doit yell/rw/ping pendant la fen\195\170tre d'input\n" ..
+        "\n" ..
+        "|cffcc2222Combos macro (dans les 0.5s)|r\n" ..
+        "  \226\128\162 |cff66ff66\226\150\178 Triangle|r  \226\134\146  /yell + /ping assist\n" ..
+        "  \226\128\162 |cffaa55ff\226\151\134 Diamond|r   \226\134\146  /rw + /ping assist\n" ..
+        "  \226\128\162 |cffffaa00\226\151\143 Circle|r    \226\134\146  /ping assist seul\n" ..
+        "  \226\128\162 |cffff5555\195\151 Cross|r     \226\134\146  /rw seul\n" ..
+        "  \226\128\162 |cffffffffT T\195\169e|r        \226\134\146  /yell seul"
+    )
+
+    -- Mode héroïque / normal
+    SectionHeader(frame, "Mode", -262)
+
+    local heroicBtn = M.MakeBtn(frame, "H\195\169ro\195\175que (5 symboles)", 180, 26)
+    heroicBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -300)
+
+    local normalBtn = M.MakeBtn(frame, "Normal (3 symboles)", 160, 26)
+    normalBtn:SetPoint("LEFT", heroicBtn, "RIGHT", 8, 0)
+
+    local function RefreshModeButtons()
+        local heroic = (M.config and M.config.luraHeroicMode) ~= false
+        if heroic then
+            heroicBtn._bg:SetColorTexture(0.78, 0.07, 0.07, 0.65)
+            normalBtn._bg:SetColorTexture(0.11, 0.11, 0.14, 1)
+        else
+            normalBtn._bg:SetColorTexture(0.78, 0.07, 0.07, 0.65)
+            heroicBtn._bg:SetColorTexture(0.11, 0.11, 0.14, 1)
+        end
+    end
+
+    heroicBtn:SetScript("OnClick", function()
+        if M.SetLuraHeroicMode then M:SetLuraHeroicMode(true) end
+        RefreshModeButtons()
+    end)
+    normalBtn:SetScript("OnClick", function()
+        if M.SetLuraHeroicMode then M:SetLuraHeroicMode(false) end
+        RefreshModeButtons()
+    end)
+
+    -- Outils
+    SectionHeader(frame, "Outils", -344)
+
+    local macroBtn = M.MakeBtn(frame, "Cr\195\169er les macros", 160, 26)
+    macroBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -382)
+    macroBtn:SetScript("OnClick", function()
+        if M.CreateLuraMacros then M:CreateLuraMacros() end
+    end)
+
+    local diagBtn = M.MakeBtn(frame, "Afficher / Cacher le diagramme", 210, 26)
+    diagBtn:SetPoint("LEFT", macroBtn, "RIGHT", 8, 0)
+    diagBtn:SetScript("OnClick", function()
+        if M.ToggleLuraDiagram then M:ToggleLuraDiagram() end
+    end)
+
+    local macroNote = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    macroNote:SetPoint("TOPLEFT", macroBtn, "BOTTOMLEFT", 0, -10)
+    macroNote:SetTextColor(0.50, 0.50, 0.55)
+    macroNote:SetText("Glisse LH_Triangle / LH_Diamond / LH_Circle / LH_Cross / LH_Tee sur ta barre d'action.")
+
+    frame:SetScript("OnShow", RefreshModeButtons)
+
+    return frame
+end
+
 -- ─── Panneau Couronne ─────────────────────────────────────────────────────────
 
 function M:CreateCrownPanel()

@@ -192,13 +192,14 @@ end
 
 -- ─── Panels enregistrés ───────────────────────────────────────────────────────
 local PANELS = {
-    options   = { frameKey = "optionsFrame",    createFn = "CreateOptions"        },
-    imperator = { frameKey = "imperatorFrame",  createFn = "CreateImperatorPanel"  },
-    vorasius  = { frameKey = "vorasiusFrame",   createFn = "CreateVorasiusPanel"   },
-    couronne  = { frameKey = "crownFrame",      createFn = "CreateCrownPanel"      },
-    chimaerus = { frameKey = "chimaerUsFrame",  createFn = "CreateChimaerUsPanel"  },
-    beloren   = { frameKey = "belorenFrame",    createFn = "CreateBelorenPanel"    },
-    sync      = { frameKey = "syncFrame",       createFn = "CreateSyncPanel"       },
+    options     = { frameKey = "optionsFrame",     createFn = "CreateOptions"         },
+    imperator   = { frameKey = "imperatorFrame",   createFn = "CreateImperatorPanel"  },
+    vorasius    = { frameKey = "vorasiusFrame",    createFn = "CreateVorasiusPanel"   },
+    couronne    = { frameKey = "crownFrame",       createFn = "CreateCrownPanel"      },
+    chimaerus   = { frameKey = "chimaerUsFrame",   createFn = "CreateChimaerUsPanel"  },
+    beloren     = { frameKey = "belorenFrame",     createFn = "CreateBelorenPanel"    },
+    glas_minuit = { frameKey = "glasMinuitFrame",  createFn = "CreateGlasMinuitPanel" },
+    sync        = { frameKey = "syncFrame",        createFn = "CreateSyncPanel"       },
 }
 
 local function HideAllPanels()
