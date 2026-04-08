@@ -1106,7 +1106,7 @@ function M:CreateGlasMinuitPanel()
 
     SectionHeader(frame, "L'ura — Midnight Falls", -28)
 
-    -- Info mécanique
+    -- Info
     local infoBox = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     infoBox:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -72)
     infoBox:SetWidth(580)
@@ -1115,25 +1115,16 @@ function M:CreateGlasMinuitPanel()
     infoBox:SetTextColor(0.68, 0.68, 0.72)
     infoBox:SetText(
         "|cffcc2222Jeu de m\195\169moire \226\128\148 Runes|r\n" ..
-        "  \226\128\162 Une personne d\195\169sign\195\169e lit l'ordre et appuie sur les macros\n" ..
-        "  \226\128\162 Le diagramme se met \195\160 jour en temps r\195\169el pour tout le raid\n" ..
-        "  \226\128\162 Personne d'autre ne doit yell pendant la fen\195\170tre d'input\n" ..
-        "\n" ..
-        "|cffcc2222Encodage par nombre de yells|r\n" ..
-        "  \226\128\162 LH_Rune1  \226\134\146  Cercle    (1 yell)\n" ..
-        "  \226\128\162 LH_Rune2  \226\134\146  Croix     (2 yells)\n" ..
-        "  \226\128\162 LH_Rune3  \226\134\146  Diamond   (3 yells)\n" ..
-        "  \226\128\162 LH_Rune4  \226\134\146  T         (4 yells)\n" ..
-        "  \226\128\162 LH_Rune5  \226\134\146  Triangle  (5 yells)\n" ..
-        "  \226\128\162 LH_LuraClear  \226\134\146  R\195\169initialise (6 yells)\n" ..
-        "  \226\128\162 LH_LuraUndo   \226\134\146  Annule dernier (7 yells)"
+        "  \226\128\162 La personne d\195\169sign\195\169e ouvre le panneau caller et clique les runes dans l'ordre\n" ..
+        "  \226\128\162 Appuie sur |cffaaffaaEnvoyer|r \226\134\146 tout le raid voit le diagramme instantan\195\169ment\n" ..
+        "  \226\128\162 Le diagramme se cache automatiquement \195\160 la fin de chaque phase"
     )
 
-    -- Mode héroïque / normal
-    SectionHeader(frame, "Mode", -262)
+    -- Mode
+    SectionHeader(frame, "Mode", -170)
 
     local heroicBtn = M.MakeBtn(frame, "H\195\169ro\195\175que (5 symboles)", 180, 26)
-    heroicBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -300)
+    heroicBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -208)
 
     local normalBtn = M.MakeBtn(frame, "Normal (3 symboles)", 160, 26)
     normalBtn:SetPoint("LEFT", heroicBtn, "RIGHT", 8, 0)
@@ -1159,24 +1150,24 @@ function M:CreateGlasMinuitPanel()
     end)
 
     -- Outils
-    SectionHeader(frame, "Outils", -344)
+    SectionHeader(frame, "Outils", -252)
 
-    local macroBtn = M.MakeBtn(frame, "Cr\195\169er les macros", 160, 26)
-    macroBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -382)
-    macroBtn:SetScript("OnClick", function()
-        if M.CreateLuraMacros then M:CreateLuraMacros() end
+    local callerBtn = M.MakeBtn(frame, "Panneau Caller (RL/assist)", 200, 26)
+    callerBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -290)
+    callerBtn:SetScript("OnClick", function()
+        if M.ToggleLuraCallerPanel then M:ToggleLuraCallerPanel() end
     end)
 
     local diagBtn = M.MakeBtn(frame, "Afficher / Cacher le diagramme", 210, 26)
-    diagBtn:SetPoint("LEFT", macroBtn, "RIGHT", 8, 0)
+    diagBtn:SetPoint("LEFT", callerBtn, "RIGHT", 8, 0)
     diagBtn:SetScript("OnClick", function()
         if M.ToggleLuraDiagram then M:ToggleLuraDiagram() end
     end)
 
-    local macroNote = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    macroNote:SetPoint("TOPLEFT", macroBtn, "BOTTOMLEFT", 0, -10)
-    macroNote:SetTextColor(0.50, 0.50, 0.55)
-    macroNote:SetText("Glisse LH_Rune1 \195\160 LH_Rune5 + LH_LuraClear + LH_LuraUndo sur ta barre d'action.")
+    local note = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    note:SetPoint("TOPLEFT", callerBtn, "BOTTOMLEFT", 0, -10)
+    note:SetTextColor(0.50, 0.50, 0.55)
+    note:SetText("Le panneau Caller permet de cliquer les runes et d'envoyer la s\195\169quence au raid.")
 
     frame:SetScript("OnShow", RefreshModeButtons)
 

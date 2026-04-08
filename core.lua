@@ -167,8 +167,8 @@ SlashCmdList["LAMENTERSHELPER"] = function(msg)
 end
 
 C_ChatInfo.RegisterAddonMessagePrefix("LH_CHECK")
--- Enregistré ici aussi pour que le préfixe existe avant tout message entrant (réception fiable).
 C_ChatInfo.RegisterAddonMessagePrefix("LH_GRID")
+C_ChatInfo.RegisterAddonMessagePrefix("LH_LURA")
 
 local checkActive = false
 
