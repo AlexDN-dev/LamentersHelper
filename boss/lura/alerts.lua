@@ -31,9 +31,18 @@ local RUNE_NAMES = { "Cercle", "Croix", "Diamond", "T", "Triangle" }
 local RING_RADIUS = 62
 local SLOT_ANGLES = { 36, 108, 180, 252, 324 }
 
+-- Fenêtres de jeu — reset automatique à la fin de chaque phase
+-- Source : PugaHelper / BunnyWithLura (timings confirmés)
+local WINDOWS = {
+    { reset = 32  },
+    { reset = 102 },
+    { reset = 172 },
+}
+
 -- ─── État ────────────────────────────────────────────────────────────────────
-local sequence     = {}
+local sequence      = {}
 local lastCombatEnd = 0
+local phaseTimers   = {}
 
 -- ─── Diagramme ───────────────────────────────────────────────────────────────
 local diagFrame  = nil
@@ -290,10 +299,20 @@ evtFrame:SetScript("OnEvent", function(_, event, encounterID)
         if encounterID == LURA_ENCOUNTER_ID then
             wipe(sequence)
             UpdateDiagram()
+            -- Reset automatique à la fin de chaque phase
+            for _, t in ipairs(phaseTimers) do pcall(function() t:Cancel() end) end
+            wipe(phaseTimers)
+            for _, w in ipairs(WINDOWS) do
+                table.insert(phaseTimers, C_Timer.NewTimer(w.reset, function()
+                    ClearSequence()
+                end))
+            end
         end
 
     elseif event == "ENCOUNTER_END" then
         if encounterID == LURA_ENCOUNTER_ID then
+            for _, t in ipairs(phaseTimers) do pcall(function() t:Cancel() end) end
+            wipe(phaseTimers)
             lastCombatEnd = GetTime()
             C_Timer.NewTimer(VANISH_GRACE, function()
                 ClearSequence()
