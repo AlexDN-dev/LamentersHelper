@@ -61,15 +61,21 @@ local function Deserialize(str)
 end
 
 -- ─── Viewer ──────────────────────────────────────────────────────────────────
+
+-- Cache le viewer et vide les icônes (appelé par les timers/events, pas par UpdateViewer)
+local function HideViewer()
+    if viewerFrame then viewerFrame:Hide() end
+    for _, obj in ipairs(viewerIcons) do obj:Hide() end
+    wipe(viewerIcons)
+end
+
+-- Met à jour les icônes du viewer. Ne cache JAMAIS le cadre (visibilité gérée ailleurs).
 local function UpdateViewer()
     if not viewerFrame then return end
     for _, obj in ipairs(viewerIcons) do obj:Hide() end
     wipe(viewerIcons)
 
-    if #sequence == 0 then
-        viewerFrame:Hide()
-        return
-    end
+    if #sequence == 0 then return end  -- cadre reste visible, juste vide
 
     for i, id in ipairs(sequence) do
         local rune = RUNES[id]
@@ -314,7 +320,7 @@ local function BuildCallerFrame()
     clearBtn:SetScript("OnClick", function()
         wipe(sequence)
         RefreshCallerButtons()
-        UpdateViewer()
+        UpdateViewer()  -- vide les icônes, garde le cadre visible
         if CanSend() then
             local channel = IsInRaid() and "RAID" or (IsInGroup() and "PARTY" or nil)
             if channel then
@@ -371,7 +377,7 @@ local function StartPhaseTimers()
         table.insert(phaseTimers, C_Timer.NewTimer(secs, function()
             wipe(sequence)
             if callerFrame then RefreshCallerButtons() end
-            UpdateViewer()
+            HideViewer()
         end))
     end
 end
@@ -393,7 +399,7 @@ evtFrame:SetScript("OnEvent", function(_, event, ...)
         if encounterID == LURA_ENCOUNTER_ID then
             wipe(sequence)
             if callerFrame then RefreshCallerButtons() end
-            UpdateViewer()
+            HideViewer()
             StartPhaseTimers()
         end
 
@@ -404,7 +410,7 @@ evtFrame:SetScript("OnEvent", function(_, event, ...)
             C_Timer.NewTimer(VANISH_GRACE, function()
                 wipe(sequence)
                 if callerFrame then RefreshCallerButtons() end
-                UpdateViewer()
+                HideViewer()
             end)
         end
 
@@ -414,7 +420,7 @@ evtFrame:SetScript("OnEvent", function(_, event, ...)
         if message == "CLEAR" then
             wipe(sequence)
             if callerFrame then RefreshCallerButtons() end
-            UpdateViewer()
+            HideViewer()
             return
         end
         local seq = Deserialize(message)
