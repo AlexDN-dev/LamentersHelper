@@ -1117,14 +1117,16 @@ function M:CreateGlasMinuitPanel()
         "|cffcc2222Jeu de m\195\169moire \226\128\148 Runes|r\n" ..
         "  \226\128\162 Une personne d\195\169sign\195\169e lit l'ordre et appuie sur les macros\n" ..
         "  \226\128\162 Le diagramme se met \195\160 jour en temps r\195\169el pour tout le raid\n" ..
-        "  \226\128\162 Personne d'autre ne doit yell/rw/ping pendant la fen\195\170tre d'input\n" ..
+        "  \226\128\162 Personne d'autre ne doit yell pendant la fen\195\170tre d'input\n" ..
         "\n" ..
-        "|cffcc2222Combos macro (dans les 0.5s)|r\n" ..
-        "  \226\128\162 |cff66ff66\226\150\178 Triangle|r  \226\134\146  /yell + /ping assist\n" ..
-        "  \226\128\162 |cffaa55ff\226\151\134 Diamond|r   \226\134\146  /rw + /ping assist\n" ..
-        "  \226\128\162 |cffffaa00\226\151\143 Circle|r    \226\134\146  /ping assist seul\n" ..
-        "  \226\128\162 |cffff5555\195\151 Cross|r     \226\134\146  /rw seul\n" ..
-        "  \226\128\162 |cffffffffT T\195\169e|r        \226\134\146  /yell seul"
+        "|cffcc2222Encodage par nombre de yells|r\n" ..
+        "  \226\128\162 LH_Rune1  \226\134\146  Cercle    (1 yell)\n" ..
+        "  \226\128\162 LH_Rune2  \226\134\146  Croix     (2 yells)\n" ..
+        "  \226\128\162 LH_Rune3  \226\134\146  Diamond   (3 yells)\n" ..
+        "  \226\128\162 LH_Rune4  \226\134\146  T         (4 yells)\n" ..
+        "  \226\128\162 LH_Rune5  \226\134\146  Triangle  (5 yells)\n" ..
+        "  \226\128\162 LH_LuraClear  \226\134\146  R\195\169initialise (6 yells)\n" ..
+        "  \226\128\162 LH_LuraUndo   \226\134\146  Annule dernier (7 yells)"
     )
 
     -- Mode héroïque / normal
@@ -1174,7 +1176,7 @@ function M:CreateGlasMinuitPanel()
     local macroNote = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
     macroNote:SetPoint("TOPLEFT", macroBtn, "BOTTOMLEFT", 0, -10)
     macroNote:SetTextColor(0.50, 0.50, 0.55)
-    macroNote:SetText("Glisse LH_Triangle / LH_Diamond / LH_Circle / LH_Cross / LH_Tee sur ta barre d'action.")
+    macroNote:SetText("Glisse LH_Rune1 \195\160 LH_Rune5 + LH_LuraClear + LH_LuraUndo sur ta barre d'action.")
 
     frame:SetScript("OnShow", RefreshModeButtons)
 
