@@ -6,7 +6,8 @@ local addonName, M = ...
 -- en temps réel pour tout le raid (détection via combos YELL / RW / PING).
 -- Logique identique à PugaHelper (Vaelhys), intégrée dans LamentersHelper.
 
-local VANISH_GRACE   = 10   -- secondes avant arrêt complet après sortie combat
+local LURA_ENCOUNTER_ID = 3183
+local VANISH_GRACE      = 10   -- secondes avant arrêt complet après sortie combat
 
 -- ─── Symboles ────────────────────────────────────────────────────────────────
 -- Icônes WoW natives — pas de fichiers media requis.
@@ -331,26 +332,28 @@ local evtFrame = CreateFrame("Frame")
 evtFrame:RegisterEvent("CHAT_MSG_YELL")
 evtFrame:RegisterEvent("CHAT_MSG_RAID_WARNING")
 evtFrame:RegisterEvent("CHAT_MSG_PING")
-evtFrame:RegisterEvent("PLAYER_REGEN_DISABLED")
-evtFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+evtFrame:RegisterEvent("ENCOUNTER_START")
+evtFrame:RegisterEvent("ENCOUNTER_END")
 evtFrame:RegisterEvent("PLAYER_LOGIN")
 
-evtFrame:SetScript("OnEvent", function(_, event)
+evtFrame:SetScript("OnEvent", function(_, event, encounterID)
     if event == "CHAT_MSG_YELL" then
         OnEventReceived("YELL")
     elseif event == "CHAT_MSG_RAID_WARNING" then
         OnEventReceived("RW")
     elseif event == "CHAT_MSG_PING" then
         OnEventReceived("PING")
-    elseif event == "PLAYER_REGEN_DISABLED" then
-        local now = GetTime()
-        if now - lastCombatEnd < VANISH_GRACE then return end
-        StartCombatTimers()
-    elseif event == "PLAYER_REGEN_ENABLED" then
-        lastCombatEnd = GetTime()
-        C_Timer.NewTimer(VANISH_GRACE, function()
-            if not InCombatLockdown() then StopCombat() end
-        end)
+    elseif event == "ENCOUNTER_START" then
+        if encounterID == LURA_ENCOUNTER_ID then
+            StartCombatTimers()
+        end
+    elseif event == "ENCOUNTER_END" then
+        if encounterID == LURA_ENCOUNTER_ID then
+            lastCombatEnd = GetTime()
+            C_Timer.NewTimer(VANISH_GRACE, function()
+                StopCombat()
+            end)
+        end
     elseif event == "PLAYER_LOGIN" then
         BuildDiagramFrame()
         ApplyMode()
