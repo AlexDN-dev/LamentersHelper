@@ -281,8 +281,11 @@ local function BuildAffichageTab(parent)
     local iconsCheck = MakeCheck(f, "Afficher les ic\195\180nes de sort  (discret, sur le texte d'alerte)",
         "showSpellIcons", "TOPLEFT", f, "TOPLEFT", 0, visualY - 34)
 
+    local flashCheck = MakeCheck(f, "Flash color\195\169  (rectangle qui s'illumine sur les alertes)",
+        "flashEnabled", "TOPLEFT", f, "TOPLEFT", 0, visualY - 68)
+
     -- ── Section : D\195\169veloppement ─────────────────────────────────────────────
-    local devY = visualY - 80
+    local devY = visualY - 114
     SectionHeader(f, "D\195\169veloppement", devY)
 
     local debugCheck = MakeCheck(f, "Afficher l'encounterID dans le chat (debug)",

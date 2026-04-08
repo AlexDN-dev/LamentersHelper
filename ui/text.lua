@@ -171,7 +171,8 @@ local function ShowChannel(channel, msg, soundType, spellID)
 
     if channel.durationKey then
         PlayPop(channel.displayFrame, POP_SCALE[soundType])
-        if channel.flashTex and soundType and soundType ~= "global" then
+        if channel.flashTex and soundType and soundType ~= "global"
+           and (M.config and M.config.flashEnabled ~= false) then
             PlayFlash(channel.flashTex, c[1], c[2], c[3])
         end
     end

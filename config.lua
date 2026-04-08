@@ -29,6 +29,7 @@ local defaults = {
 
     -- Affichage — options visuelles
     showSpellIcons = false,   -- icônes de sort discrètes à côté du texte
+    flashEnabled   = true,    -- rectangle coloré qui s'illumine sur les alertes
 
     -- Barres de progression
     barGroupPosX = 0,
