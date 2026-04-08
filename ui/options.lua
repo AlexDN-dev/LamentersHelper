@@ -139,8 +139,17 @@ local function MakeDropdown(parent, choices, onSelect)
 end
 
 local function BuildAffichageTab(parent)
-    local f = CreateFrame("Frame", nil, parent)
-    f:SetAllPoints()
+    local container = CreateFrame("Frame", nil, parent)
+    container:SetAllPoints()
+
+    local scrollFrame = CreateFrame("ScrollFrame", nil, container, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT",     container, "TOPLEFT",      0,   0)
+    scrollFrame:SetPoint("BOTTOMRIGHT", container, "BOTTOMRIGHT", -26,  0)
+
+    local f = CreateFrame("Frame", nil, scrollFrame)
+    f:SetWidth(scrollFrame:GetWidth() or 580)
+    f:SetHeight(640)
+    scrollFrame:SetScrollChild(f)
 
     -- ── Section : Positions des textes ────────────────────────────────────────
     SectionHeader(f, "Positions des textes", -8)
@@ -316,7 +325,7 @@ local function BuildAffichageTab(parent)
         debugCheck:SetChecked(M.config.debugEncounter)
     end)
 
-    return f
+    return container
 end
 
 -- ─── Onglet : Sons ────────────────────────────────────────────────────────────
