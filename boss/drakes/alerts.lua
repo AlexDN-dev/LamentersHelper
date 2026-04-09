@@ -2,13 +2,36 @@ local addonName, M = ...
 
 -- Vaelgor & Ezzorak — The Voidspire (Midnight 12.0)
 -- IMPORTANT: eventInfo.spellID est tainté en Midnight. Identification par eventInfo.duration.
--- Durées sources : BigWigs_TheVoidspire/VaelgorAndEzzorak.lua (Mythic, stage 1 pull)
--- ⚠ Les durées varient beaucoup par stage — activer debugEncounter pour cartographier les autres stages
+-- Détection principale via CLEU (SPELL_CAST_START) pour Dread Breath et Void Howl :
+--   plus précis que les timers car fire au moment exact du cast, indépendamment de la phase.
+-- CLEU spellIDs ne sont PAS taintés en Midnight — comparaison directe sûre.
 local ENCOUNTER_ID = 3178
 
-local inFight = false
-local trackedAuras = {}
-local activeTimers = {}
+-- ─── Spell IDs (CLEU — non taintés) ──────────────────────────────────────────
+local SPELL_DREAD_BREATH    = 1244221  -- Souffle Redoutable (Vaelgor) → fear AoE
+local SPELL_VOID_HOWL       = 1244917  -- Hurlement du Vide (Ezzorak) → spread 2.5s cast
+local SPELL_RADIANT_BARRIER = 1248847  -- Barrière Radieuse → début intermission
+local SPELL_NULLBEAM        = 1262623  -- Rayon du Néant → tank soak
+local SPELL_GLOOM           = 1245391  -- Déprime → soak rotation
+local SPELL_VAELWING        = 1265131  -- Aile du Vide → adds sur joueurs
+-- Auras joueur (UNIT_AURA — GetPlayerAuraBySpellID, non tainté)
+local SPELL_NULLZONE        = 1244672  -- Zone du Néant → debuff joueur ciblé
+local SPELL_DIMINISH        = 1270852  -- Diminution → ne plus soak Gloom
+
+-- Durée cast de Dread Breath (en secondes) — à confirmer via debugEncounter
+-- BigWigs ne liste pas le cast time directement ; 3s est une estimation.
+local DREAD_BREATH_CAST     = 3.0
+-- Durée intermission Radiant Barrier (BigWigs : ~120s Mythic)
+local INTERMISSION_DURATION = 120
+
+-- ─── État ─────────────────────────────────────────────────────────────────────
+local inFight        = false
+local trackedAuras   = {}
+local activeTimers   = {}
+local cleuRegistered = false
+local breathCooldown = false  -- anti-spam si double event
+local howlCooldown   = false
+
 local frame = CreateFrame("Frame")
 
 local function ShowAlert(msg, soundType, spellID)
@@ -21,25 +44,61 @@ local function ShowPrivate(msg, spellID)
     if M.PlayAlertSound then M:PlayAlertSound("private") end
 end
 
--- SpellIDs connus pour les icônes
-local SPELL_NULLZONE = 1244672
-local SPELL_DIMINISH = 1270852
+-- ─── CLEU lazy-register ───────────────────────────────────────────────────────
+local function RegisterCLEU()
+    if not cleuRegistered then
+        C_Timer.After(0, function()
+            frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+            cleuRegistered = true
+        end)
+    end
+end
 
--- Durées confirmées BigWigs (Mythic, stage 1 initial pull) :
---   30           → Nullbeam
---   35           → Void Howl
---   10           → Gloom (stage 1) ; 48 (stage 2) ; 25 (stage 3)
---   8            → Midnight Flames (début intermission)
--- Stage 2/3 : durées différentes, activer debugEncounter pour les découvrir
+local function UnregisterCLEU()
+    if cleuRegistered then
+        C_Timer.After(0, function()
+            frame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+            cleuRegistered = false
+        end)
+    end
+end
+
+-- ─── Handlers CLEU ───────────────────────────────────────────────────────────
+
+-- Dread Breath : Vaelgor caste → tout le monde doit se retourner / absorber le fear
+-- Barre courte = cast time restant (comme Echo "BREATH 2.4")
+local function OnDreadBreath()
+    if breathCooldown then return end
+    breathCooldown = true
+    C_Timer.After(DREAD_BREATH_CAST + 1, function() breathCooldown = false end)
+    ShowAlert("FEAR — SOUFFLE REDOUTABLE !", "interrupt", SPELL_DREAD_BREATH)
+    M:ProgressBarCountdown(2, DREAD_BREATH_CAST, "FEAR — SOUFFLE REDOUTABLE", "interrupt", SPELL_DREAD_BREATH)
+end
+
+-- Void Howl : Ezzorak caste → SPREAD (2.5s pour s'écarter de ses voisins)
+local function OnVoidHowl()
+    if howlCooldown then return end
+    howlCooldown = true
+    C_Timer.After(2.5 + 1, function() howlCooldown = false end)
+    ShowAlert("SPREAD — HURLEMENT DU VIDE !", "soak", SPELL_VOID_HOWL)
+    M:ProgressBarCountdown(3, 2.5, "SPREAD — ÉCARTEZ-VOUS", "soak", SPELL_VOID_HOWL)
+end
+
+-- Radiant Barrier : début intermission → barre de durée complète
+local function OnIntermission()
+    ShowAlert("INTERMISSION — STACK DANS LE BARRIER !", "phase", SPELL_RADIANT_BARRIER)
+    M:ProgressBarCountdown(4, INTERMISSION_DURATION, "INTERMISSION — BARRIER", "phase", SPELL_RADIANT_BARRIER)
+end
+
+-- ─── Timeline (mécaniques sans cast détectable) ───────────────────────────────
+-- Nullbeam, Gloom et Vaelwing restent sur timeline car pas de cast CLEU fiable.
 local function BuildTimerCallback(d)
-    if d == 30 then
-        return function() ShowAlert("NULLBEAM — TANK SOAK !", "soak", SPELL_NULLZONE) end
-    elseif d == 35 then
-        return function() ShowAlert("VOID HOWL — GROUPEZ-VOUS !") end
+    if d == 30 or d == 18 or d == 45 then
+        return function() ShowAlert("NULLBEAM — TANK SOAK !", "soak", SPELL_NULLBEAM) end
     elseif d == 10 or d == 48 or d == 25 then
-        return function() ShowAlert("GLOOM — ÉQUIPE SOAK EN POSITION !", "soak") end
-    elseif d == 8 then
-        return function() ShowAlert("INTERMISSION — STACK DANS LE BARRIER !", "phase") end
+        return function() ShowAlert("GLOOM — ÉQUIPE SOAK EN POSITION !", "soak", SPELL_GLOOM) end
+    elseif d == 6 or d == 19 or d == 21 then
+        return function() ShowAlert("VAELWING — ÉCARTEZ-VOUS !", "global", SPELL_VAELWING) end
     end
     return nil
 end
@@ -66,9 +125,10 @@ local function OnTimelineStateChanged(eventID)
     end
 end
 
+-- ─── UNIT_AURA : debuffs joueur ───────────────────────────────────────────────
 local function OnUnitAura(unit)
     if unit ~= "player" then return end
-    -- Auras boss taintées en Midnight (spellId secret) — player seulement
+
     local nullzone = C_UnitAuras.GetPlayerAuraBySpellID(SPELL_NULLZONE)
     if nullzone and not trackedAuras.nullzone then
         trackedAuras.nullzone = true
@@ -91,13 +151,21 @@ local function OnUnitAura(unit)
     end
 end
 
+-- ─── Reset ────────────────────────────────────────────────────────────────────
 local function ResetState()
-    inFight = false
+    inFight      = false
     trackedAuras = {}
     activeTimers = {}
+    breathCooldown = false
+    howlCooldown   = false
     M:ProgressBarHide(1)
+    M:ProgressBarHide(2)
+    M:ProgressBarHide(3)
+    M:ProgressBarHide(4)
+    UnregisterCLEU()
 end
 
+-- ─── Événements ───────────────────────────────────────────────────────────────
 frame:RegisterEvent("ENCOUNTER_START")
 frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -114,7 +182,9 @@ frame:SetScript("OnEvent", function(_, event, ...)
         if encounterID == ENCOUNTER_ID then
             ResetState()
             inFight = true
+            RegisterCLEU()
         end
+
     elseif event == "ENCOUNTER_END" then
         local encounterID, encounterName = ...
         if M.config and M.config.debugEncounter then
@@ -125,22 +195,62 @@ frame:SetScript("OnEvent", function(_, event, ...)
             M:HideText()
             M:HidePrivateText()
         end
+
     elseif event == "PLAYER_ENTERING_WORLD" then
         ResetState()
+
     elseif event == "ENCOUNTER_TIMELINE_EVENT_ADDED" then
         if not inFight then return end
         OnTimelineAdded(...)
+
     elseif event == "ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED" then
         if not inFight then return end
         OnTimelineStateChanged(...)
+
     elseif event == "UNIT_AURA" then
         if not inFight then return end
         OnUnitAura(...)
+
+    elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
+        if not inFight then return end
+        local _, subevent, _, _, _, _, _, _, _, _, _, spellId = CombatLogGetCurrentEventInfo()
+
+        if subevent == "SPELL_CAST_START" then
+            if spellId == SPELL_DREAD_BREATH then
+                OnDreadBreath()
+            elseif spellId == SPELL_VOID_HOWL then
+                OnVoidHowl()
+            end
+
+        elseif subevent == "SPELL_AURA_APPLIED" then
+            -- Radiant Barrier peut être un AURA_APPLIED (shield) plutôt qu'un CAST
+            if spellId == SPELL_RADIANT_BARRIER then
+                OnIntermission()
+            end
+
+        elseif subevent == "SPELL_CAST_SUCCESS" then
+            -- Fallback si Radiant Barrier fire sur CAST_SUCCESS au lieu de AURA_APPLIED
+            if spellId == SPELL_RADIANT_BARRIER and not trackedAuras.intermission then
+                trackedAuras.intermission = true
+                OnIntermission()
+            end
+        end
     end
 end)
 
 SLASH_LHDRAKESTEST1 = "/lhdrakestest"
-SlashCmdList["LHDRAKESTEST"] = function()
-    ShowAlert("GLOOM — ÉQUIPE SOAK EN POSITION !", "soak")
-    ShowPrivate("NULLZONE — BOUGEZ !")
+SlashCmdList["LHDRAKESTEST"] = function(arg)
+    if arg == "breath" then
+        OnDreadBreath()
+    elseif arg == "spread" then
+        OnVoidHowl()
+    elseif arg == "inter" then
+        OnIntermission()
+    elseif arg == "gloom" then
+        ShowAlert("GLOOM — ÉQUIPE SOAK EN POSITION !", "soak", SPELL_GLOOM)
+    elseif arg == "nullzone" then
+        ShowPrivate("NULLZONE — BOUGEZ !", SPELL_NULLZONE)
+    else
+        print("|cff00ff00LH Drakes|r /lhdrakestest breath|spread|inter|gloom|nullzone")
+    end
 end
