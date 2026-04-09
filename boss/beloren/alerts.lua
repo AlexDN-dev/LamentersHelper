@@ -51,7 +51,6 @@ local ASHEN_BENEDICTION_ID   = 1262573   -- Burst Feu + stack réduction soins (
 local inFight             = false
 local activeTimers        = {}
 local trackedAuras        = {}
-local cleuRegistered      = false
 local myAura              = nil        -- "VOID" | "LIGHT" | nil  (auto-détecté ou config)
 local currentPhase        = 1         -- 1 = boss actif, 2 = œuf
 local ashenStacks         = 0
@@ -230,23 +229,6 @@ local function ShowDispel(msg, spellID)
     if M.PlayAlertSound then M:PlayAlertSound("dispel") end
 end
 
--- ─── CLEU lazy-register ───────────────────────────────────────────────────────
-local function RegisterCLEU()
-    if not cleuRegistered then
-        C_Timer.After(0, function()
-            frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-            cleuRegistered = true
-        end)
-    end
-end
-
-local function UnregisterCLEU()
-    if cleuRegistered then
-        C_Timer.After(0, function()
-            frame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-            cleuRegistered = false
-        end)
-    end
 end
 
 -- ─── Rappel d'aura (toutes les 60s) ──────────────────────────────────────────
@@ -597,7 +579,6 @@ local function ResetState()
     M:ProgressBarHide(2)
     anchorPreview = false
     if auraIconFrame then auraIconFrame:Hide() end
-    UnregisterCLEU()
 end
 
 -- ─── Commandes de test ────────────────────────────────────────────────────────
@@ -674,6 +655,7 @@ frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED")
+frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 frame:RegisterUnitEvent("UNIT_AURA", "player")
 
 frame:SetScript("OnEvent", function(_, event, ...)
@@ -689,7 +671,6 @@ frame:SetScript("OnEvent", function(_, event, ...)
         if encounterID == ENCOUNTER_ID then
             ResetState()
             inFight = true
-            RegisterCLEU()
             StartAuraReminder()
             -- Affiche l'icône si l'aura est déjà connue (config manuelle)
             UpdateAuraIconFrame()
