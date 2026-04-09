@@ -13,6 +13,107 @@ local activeTimers = {}  -- eventID → callback
 local ambig45Count = 0   -- compteur pour les 3 abilities à ~45s (cyclent en ordre)
 local frame = CreateFrame("Frame")
 
+-- ─── Indicateur de portée kick sur les Fractured Images ──────────────────────
+-- Affiche un badge vert "KICK" ou rouge "LOIN" au-dessus de chaque nameplate
+-- de Fractured Image, mis à jour toutes les 100ms selon la range réelle.
+--
+-- NOM de l'add à confirmer via debugEncounter (NAME_PLATE_UNIT_ADDED).
+-- En attendant on détecte aussi via le cast Shadow Fracture.
+local FRACTURED_IMAGE_NAME = "Fractured Image"  -- EN ; FR : "Image Fracturée"
+local FRACTURED_IMAGE_NAME_FR = "Image Fractur\195\169e"
+
+-- Sort d'interrupt par classe (spell ID baseline, non-tainté)
+local CLASS_INTERRUPT = {
+    WARRIOR     = 6552,    -- Pummel          5 yd
+    PALADIN     = 96231,   -- Rebuke          5 yd
+    HUNTER      = 147362,  -- Counter Shot   40 yd  (BM/MM) | 187707 Muzzle (Surv 5yd)
+    ROGUE       = 1766,    -- Kick            5 yd
+    SHAMAN      = 57994,   -- Wind Shear     30 yd
+    MAGE        = 2139,    -- Counterspell   40 yd
+    MONK        = 116705,  -- Spear Hand      5 yd
+    DRUID       = 106839,  -- Skull Bash      5 yd
+    DEMONHUNTER = 183752,  -- Disrupt         5 yd
+    DEATHKNIGHT = 47528,   -- Mind Freeze    15 yd
+    EVOKER      = 351338,  -- Quell          25 yd
+    -- WARLOCK / PRIEST : pas d'interrupt baseline
+}
+
+local playerClass      = select(2, UnitClass("player"))
+local interruptSpellID = CLASS_INTERRUPT[playerClass]
+
+-- Table des overlays actifs : { [unitToken] = frame }
+local kickOverlays = {}
+
+local function IsFracturedImage(unit)
+    local name = UnitName(unit)
+    return name == FRACTURED_IMAGE_NAME or name == FRACTURED_IMAGE_NAME_FR
+end
+
+local function CreateKickOverlay(unit)
+    if kickOverlays[unit] then return end
+    local np = C_NamePlate.GetNamePlateForUnit(unit)
+    if not np then return end
+
+    local f = CreateFrame("Frame", nil, np)
+    f:SetSize(52, 22)
+    f:SetPoint("BOTTOM", np, "TOP", 0, 8)
+    f:SetFrameStrata("HIGH")
+    f:SetFrameLevel(np:GetFrameLevel() + 10)
+
+    local bg = f:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(0, 0, 0, 0.75)
+
+    local lbl = f:CreateFontString(nil, "OVERLAY")
+    lbl:SetFont("Fonts\\FRIZQT__.TTF", 14, "OUTLINE")
+    lbl:SetAllPoints()
+    lbl:SetJustifyH("CENTER")
+    lbl:SetJustifyV("MIDDLE")
+    f._lbl = lbl
+    f._unit = unit
+    f._t = 0
+
+    f:SetScript("OnUpdate", function(self, elapsed)
+        self._t = self._t + elapsed
+        if self._t < 0.1 then return end
+        self._t = 0
+
+        if not interruptSpellID then
+            -- Classe sans interrupt (Warlock, Priest) : badge gris neutre
+            self._lbl:SetText("|cffaaaaaa  —  |r")
+            return
+        end
+
+        local inRange = C_Spell.IsSpellInRange(interruptSpellID, self._unit)
+        if inRange == true then
+            self._lbl:SetText("|cff00ee44KICK|r")
+        elseif inRange == false then
+            self._lbl:SetText("|cffff2222LOIN|r")
+        else
+            -- nil = unité invalide/morte
+            self._lbl:SetText("")
+        end
+    end)
+
+    f:Show()
+    kickOverlays[unit] = f
+end
+
+local function RemoveKickOverlay(unit)
+    local f = kickOverlays[unit]
+    if f then
+        f:SetScript("OnUpdate", nil)
+        f:Hide()
+        kickOverlays[unit] = nil
+    end
+end
+
+local function RemoveAllKickOverlays()
+    for unit in pairs(kickOverlays) do
+        RemoveKickOverlay(unit)
+    end
+end
+
 local function ShowAlert(msg, soundType, spellID)
     M:ShowText(msg, soundType, spellID)
     if M.PlayAlertSound then M:PlayAlertSound(soundType or "global") end
@@ -162,6 +263,7 @@ local function ResetState()
     umbralBeamsActive = false
     activeTimers = {}
     ambig45Count = 0
+    RemoveAllKickOverlays()
     M:ProgressBarHide(1)
     M:ProgressBarHide(2)
     M:ProgressBarHide(3)
@@ -174,6 +276,8 @@ frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED")
 frame:RegisterUnitEvent("UNIT_AURA", "player")
+frame:RegisterEvent("NAME_PLATE_UNIT_ADDED")
+frame:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
 
 frame:SetScript("OnEvent", function(_, event, ...)
     if event == "ENCOUNTER_START" then
@@ -185,6 +289,7 @@ frame:SetScript("OnEvent", function(_, event, ...)
             ResetState()
             inFight = true
         end
+
     elseif event == "ENCOUNTER_END" then
         local encounterID, encounterName = ...
         if M.config and M.config.debugEncounter then
@@ -195,17 +300,35 @@ frame:SetScript("OnEvent", function(_, event, ...)
             M:HideText()
             M:HidePrivateText()
         end
+
     elseif event == "PLAYER_ENTERING_WORLD" then
         ResetState()
+
     elseif event == "ENCOUNTER_TIMELINE_EVENT_ADDED" then
         if not inFight then return end
         OnTimelineAdded(...)
+
     elseif event == "ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED" then
         if not inFight then return end
         OnTimelineStateChanged(...)
+
     elseif event == "UNIT_AURA" then
         if not inFight then return end
         OnUnitAura(...)
+
+    elseif event == "NAME_PLATE_UNIT_ADDED" then
+        if not inFight then return end
+        local unit = ...
+        if IsFracturedImage(unit) then
+            CreateKickOverlay(unit)
+        elseif M.config and M.config.debugEncounter then
+            -- Aide au debug : affiche le nom de tous les adds qui apparaissent
+            print(string.format("|cff00ff00LH Debug|r NAMEPLATE: '%s'", tostring(UnitName(unit))))
+        end
+
+    elseif event == "NAME_PLATE_UNIT_REMOVED" then
+        local unit = ...
+        RemoveKickOverlay(unit)
     end
 end)
 
