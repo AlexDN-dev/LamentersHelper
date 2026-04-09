@@ -358,40 +358,51 @@ local function OnAshenBenedictionCast()
 end
 
 -- ─── UNIT_AURA : auto-détection de l'aura Vide / Lumière ─────────────────────
+-- Réévaluée à CHAQUE tick : le boss peut changer l'aura en cours de combat.
 local function OnUnitAura(unit)
     if unit ~= "player" then return end
 
-    -- Tentative de détection de l'aura par nom du sort (résistant au split d'IDs)
+    -- Détecter l'aura active (par nom du sort, résistant au split d'IDs)
+    local detected = nil
+
     local auraInfo = C_UnitAuras.GetPlayerAuraBySpellID(VOID_CONVERGENCE_ID)
-    if auraInfo and not trackedAuras.aura then
-        local nameLow   = (auraInfo.name or ""):lower()
-        local detected  = nil
+    if auraInfo then
+        local nameLow = (auraInfo.name or ""):lower()
         if nameLow:find("vide") or nameLow:find("void") then
             detected = "VOID"
         elseif nameLow:find("lumi") or nameLow:find("light") then
             detected = "LIGHT"
         end
-        if detected then
-            myAura             = detected
-            trackedAuras.aura  = true
-            -- Affichage immédiat de l'aura détectée
-            ShowPrivate("AURA DÉTECTÉE : " .. AuraLabel(myAura), VOID_CONVERGENCE_ID)
-        end
-    elseif not auraInfo then
-        -- Aura absente (wipe / reset) — on garde la dernière valeur connue en combat
-        -- pour éviter de perdre l'info en cas de reapplication
-        if not inFight then trackedAuras.aura = nil end
     end
 
-    -- Si on a un 2e ID pour la lumière, vérifier aussi
-    if LIGHT_CONVERGENCE_ID ~= VOID_CONVERGENCE_ID then
+    -- Si on a un 2e ID distinct pour la lumière, vérifier aussi
+    if not detected and LIGHT_CONVERGENCE_ID ~= VOID_CONVERGENCE_ID then
         local lightInfo = C_UnitAuras.GetPlayerAuraBySpellID(LIGHT_CONVERGENCE_ID)
-        if lightInfo and not trackedAuras.aura then
-            myAura            = "LIGHT"
-            trackedAuras.aura = true
-            ShowPrivate("AURA DÉTECTÉE : " .. AuraLabel("LIGHT"), LIGHT_CONVERGENCE_ID)
+        if lightInfo then
+            detected = "LIGHT"
         end
     end
+
+    -- Mise à jour uniquement si l'aura a changé (détection initiale ou changement en combat)
+    if detected and detected ~= myAura then
+        local prev = myAura
+        myAura            = detected
+        trackedAuras.aura = true
+        if prev then
+            -- Changement d'aura en cours de combat (boss switch Vide ↔ Lumière)
+            ShowPrivate(
+                "⚠ AURA CHANGÉE : " .. AuraLabel(prev) .. "  →  " .. AuraLabel(detected),
+                VOID_CONVERGENCE_ID
+            )
+        else
+            -- Première détection en début de combat
+            ShowPrivate("AURA DÉTECTÉE : " .. AuraLabel(myAura), VOID_CONVERGENCE_ID)
+        end
+    elseif not detected and not inFight then
+        -- Hors combat : on peut reset (wipe, entre les essais)
+        trackedAuras.aura = nil
+    end
+    -- Si detected == nil en combat : aura absente temporairement (reapplication) → on garde myAura
 
     -- Brûlures Éternelles (tank absorb + DoT)
     local eternBurns = C_UnitAuras.GetPlayerAuraBySpellID(ETERNAL_BURNS_ID)
