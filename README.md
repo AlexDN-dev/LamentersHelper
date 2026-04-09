@@ -5,7 +5,7 @@ Addon WoW privé pour le raid **The Lamenters** — *The Voidspire* & *The Dream
 Affiche des alertes texte (globales et/ou privées) et des barres de progression en réponse aux mécaniques de boss, détectées via le combat log, les auras joueur, et la timeline de rencontre.
 
 > **Compatibilité :** Midnight 12.0 — Difficulté Mythique  
-> **Auteurs :** Sacha, Thyrial
+> **Auteurs :** Sacha, Thirall
 
 ---
 
