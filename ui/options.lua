@@ -992,8 +992,17 @@ end
 -- ─── Panneau Belo'ren ────────────────────────────────────────────────────────
 
 function M:CreateBelorenPanel()
-    local frame = CreateFrame("Frame", nil, M.content)
-    frame:SetAllPoints(M.content)
+    local outer = CreateFrame("Frame", nil, M.content)
+    outer:SetAllPoints(M.content)
+
+    -- ScrollFrame : tout le contenu Belo'ren est scrollable
+    local sf = CreateFrame("ScrollFrame", nil, outer, "UIPanelScrollFrameTemplate")
+    sf:SetPoint("TOPLEFT",     outer, "TOPLEFT",      0,   0)
+    sf:SetPoint("BOTTOMRIGHT", outer, "BOTTOMRIGHT", -26,  0)
+
+    local frame = CreateFrame("Frame", nil, sf)
+    frame:SetSize(sf:GetWidth() or 590, 700)
+    sf:SetScrollChild(frame)
 
     SectionHeader(frame, "Belo'ren, Enfant d'Al'ar — H\195\169ro\195\175que/Mythique", -28)
 
@@ -1146,7 +1155,7 @@ function M:CreateBelorenPanel()
         iconSizeSlider:SetValue(M.config.belorenAuraIconSize or 80)
     end)
 
-    return frame
+    return outer
 end
 
 -- ─── Panneau Glas de minuit (L'ura) ──────────────────────────────────────────
