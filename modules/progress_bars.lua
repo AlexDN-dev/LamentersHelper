@@ -139,6 +139,14 @@ local function GetOrCreateBar(slotIndex)
     barTime:SetJustifyH("RIGHT")
     SetBarTextStyle(barTime)
 
+    -- Marker deadline (trait vertical rouge) — caché par défaut
+    -- Positionné via SetDeadlineMarker(f, fraction) où fraction ∈ [0,1]
+    local deadlineMarker = f:CreateTexture(nil, "OVERLAY")
+    deadlineMarker:SetSize(3, h)
+    deadlineMarker:SetColorTexture(1, 0.1, 0.1, 0.95)
+    deadlineMarker:Hide()
+    f._deadlineMarker = deadlineMarker
+
     f.iconTex   = iconTex
     f.barTitle  = barTitle
     f.barTime   = barTime
@@ -148,6 +156,20 @@ local function GetOrCreateBar(slotIndex)
 
     M._progressBarSlots[slotIndex] = f
     return f
+end
+
+-- Place le marker deadline à `fraction` de la largeur (0=gauche, 1=droite).
+-- Appeler avec fraction=nil pour le masquer.
+local function SetDeadlineMarker(f, fraction)
+    if not fraction then
+        f._deadlineMarker:Hide()
+        return
+    end
+    local w = f:GetWidth()
+    local x = w * fraction
+    f._deadlineMarker:ClearAllPoints()
+    f._deadlineMarker:SetPoint("LEFT", f, "LEFT", x - 1, 0)
+    f._deadlineMarker:Show()
 end
 
 function M:ProgressBarSet(slotIndex, min, max, value, titleText, alertType, spellID)
@@ -201,6 +223,49 @@ function M:ProgressBarCountdown(slotIndex, durationSeconds, titleText, alertType
         if left <= 0 then
             f.statusBar:SetValue(0)
             UpdateCountdownTexts(f, 0)
+            if f.animTicker then f.animTicker:Cancel(); f.animTicker = nil end
+            f:Hide()
+            return
+        end
+        f.statusBar:SetValue(left)
+        UpdateCountdownTexts(f, left)
+    end)
+end
+
+--- Comme ProgressBarCountdown mais avec un marker rouge deadline.
+--- deadlineSeconds = moment où le marker est positionné (ex: 10s sur une barre de 17s).
+--- Le marker reste fixe ; la barre se vide vers lui.
+function M:ProgressBarCountdownDeadline(slotIndex, durationSeconds, titleText, alertType, spellID, deadlineSeconds)
+    if not durationSeconds or durationSeconds <= 0 then
+        self:ProgressBarHide(slotIndex)
+        return
+    end
+    local f = GetOrCreateBar(slotIndex)
+    f._countdownTitle = titleText or ""
+    ApplyBarFillColor(f.statusBar, alertType)
+    f.statusBar:SetMinMaxValues(0, durationSeconds)
+    f.statusBar:SetValue(durationSeconds)
+    SetBarIcon(f, spellID)
+    UpdateCountdownTexts(f, durationSeconds)
+
+    -- Positionne le marker : fraction = deadlineSeconds / durationSeconds (depuis la gauche)
+    if deadlineSeconds and deadlineSeconds > 0 and deadlineSeconds < durationSeconds then
+        SetDeadlineMarker(f, deadlineSeconds / durationSeconds)
+    else
+        SetDeadlineMarker(f, nil)
+    end
+
+    f:Show()
+
+    if f.animTicker then f.animTicker:Cancel(); f.animTicker = nil end
+
+    local endT = GetTime() + durationSeconds
+    f.animTicker = C_Timer.NewTicker(0.03, function()
+        local left = endT - GetTime()
+        if left <= 0 then
+            f.statusBar:SetValue(0)
+            UpdateCountdownTexts(f, 0)
+            SetDeadlineMarker(f, nil)
             if f.animTicker then f.animTicker:Cancel(); f.animTicker = nil end
             f:Hide()
             return

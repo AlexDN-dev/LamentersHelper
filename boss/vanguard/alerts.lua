@@ -1,14 +1,46 @@
 local addonName, M = ...
 
 -- Lightblinded Vanguard — The Voidspire (Midnight 12.0)
--- IMPORTANT: eventInfo.spellID est tainté en Midnight. Identification par eventInfo.duration.
--- Durées sources : BigWigs_TheVoidspire/Vanguard.lua (Heroic initial + Mythic)
--- ⚠ Encounter très complexe (rotation ~159s, ~8 abilities) — debug pour les durées inconnues
+-- Détection principale via CLEU (SPELL_CAST_START) pour les mécaniques clés :
+--   Searing Radiance, Sacred Toll, Sacred Shield, Blinding Light
+-- Timeline conservée pour : Aura of X, Divine Toll, Execution Sentence (global), Divine Storm
+-- CLEU spellIDs ne sont PAS taintés en Midnight — comparaison directe sûre.
 local ENCOUNTER_ID = 3180
 
-local inFight = false
-local trackedAuras = {}
-local activeTimers = {}
+-- ─── Spell IDs (CLEU — non taintés) ──────────────────────────────────────────
+local SPELL_SEARING_RAD  = 1255738  -- Rayonnance Ardente (Senn) → SPREAD 2s
+local SPELL_SACRED_TOLL  = 1246749  -- Péage Sacré (Venel) → RAID DAMAGE 2s
+local SPELL_SACRED_SHIELD= 1248674  -- Bouclier Sacré (Senn) → shield à burst + kick
+local SPELL_BLINDING     = 1258514  -- Lumière Aveuglante (Senn) → interrupt 7s
+local SPELL_DIVINE_TOLL  = 1248644  -- Divine Toll (Bellamy) → éviter boucliers
+local SPELL_DIVINE_STORM = 1246765  -- Tempête Divine → tornades
+local SPELL_ELEKK        = 1249130  -- Elekk Charge → esquiver
+-- Auras joueur (UNIT_AURA — GetPlayerAuraBySpellID)
+local SPELL_EXEC         = 1248985  -- Execution Sentence (privé joueur ciblé)
+local SPELL_EXEC_ALT     = 1248994  -- variante
+-- Timers de phase (timeline)
+local SPELL_AURA_WRATH   = 1248449  -- Aura of Wrath → Venel sur le bord
+local SPELL_AURA_DEV     = 1246162  -- Aura of Devotion → Bellamy sur le bord
+local SPELL_AURA_PEACE   = 1248451  -- Aura of Peace → Senn sur le bord
+
+-- Durée du cast de Blinding Light (BigWigs : ~7s à confirmer via debug)
+local BLINDING_CAST      = 7.0
+-- Durée du bouclier Sacred Shield (BigWigs timeline : dur=17)
+local SACRED_SHIELD_DUR  = 17.0
+-- Deadline pour burst le shield (secondes restantes) — marker rouge à cette position
+-- Valeur estimée : 7s restantes = après ce point c'est trop tard
+local SACRED_SHIELD_DEADLINE = 7.0
+
+-- ─── État ─────────────────────────────────────────────────────────────────────
+local inFight         = false
+local trackedAuras    = {}
+local activeTimers    = {}
+local cleuRegistered  = false
+local shieldActive    = false
+local spreadCooldown  = false
+local tollCooldown    = false
+local blindCooldown   = false
+
 local frame = CreateFrame("Frame")
 
 local function ShowAlert(msg, soundType, spellID)
@@ -21,53 +53,91 @@ local function ShowPrivate(msg, spellID)
     if M.PlayAlertSound then M:PlayAlertSound("private") end
 end
 
--- SpellIDs connus pour les icônes
-local SPELL_EXEC   = 1248985
-local SPELL_BLIND  = 1258514
+-- ─── CLEU lazy-register ───────────────────────────────────────────────────────
+local function RegisterCLEU()
+    if not cleuRegistered then
+        C_Timer.After(0, function()
+            frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+            cleuRegistered = true
+        end)
+    end
+end
 
--- Durées BigWigs Vanguard — Héroïque (TimersHeroic) + Mythique (TimersMythic) :
---   10       → Sacred Toll (Héroïque pull ; Mythique: 20)
---   15       → Avenger's Shield (Héroïque) — alerte tank, pas de message raid
---   17       → Sacred Shield (toutes difficultés)
---   18       → Divine Storm (Héroïque ; Mythique: 15/123)
---   23       → Sacred Toll (Normal pull)
---   26       → Judgement Blue (Héroïque/Normal) / Aura of Devotion (Mythique)
---   29       → Divine Toll (Mythique)
---   30       → Judgement Red (Héroïque/Normal pull)
---   35       → Aura of Devotion (Héroïque/Normal pull)
---   38       → Divine Toll (Héroïque ; Mythique: 26/29/22)
---   47       → Searing Radiance (Héroïque ; Mythique: 7/59)
---   66/12    → Avenger's Shield (Mythique) — pas d'alerte raid
---   79/83    → Aura of Wrath (79=Mythique, 83=Héroïque)
---   82/86    → Execution Sentence (82=Mythique, 86=Héroïque)
---   131/132  → Aura of Peace (131=Héroïque, 132=Mythique)
---   135      → Tyr's Wrath (Mythique uniquement, non tracké)
--- Blinding Light : private aura 1258514 — détecté dans OnUnitAura
--- Elekk Charge : buff sur les NPCs (BigWigs: "lol"), non trackable
--- dur=15 = Avenger's Shield (Héroïque) — tank ability, pas d'alerte raid
--- dur=45 = repeating timer post-pull, non cartographié par BigWigs non plus
+local function UnregisterCLEU()
+    if cleuRegistered then
+        C_Timer.After(0, function()
+            frame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+            cleuRegistered = false
+        end)
+    end
+end
+
+-- ─── Handlers CLEU ───────────────────────────────────────────────────────────
+
+-- Searing Radiance : Senn caste → SPREAD (2s pour s'écarter)
+local function OnSearingRadiance()
+    if spreadCooldown then return end
+    spreadCooldown = true
+    C_Timer.After(2 + 1, function() spreadCooldown = false end)
+    ShowAlert("SPREAD — RAYONNANCE ARDENTE !", "soak", SPELL_SEARING_RAD)
+    M:ProgressBarCountdown(2, 2.0, "SPREAD — ÉCARTEZ-VOUS", "soak", SPELL_SEARING_RAD)
+end
+
+-- Sacred Toll : Venel caste → dégâts raid dans 2s
+local function OnSacredToll()
+    if tollCooldown then return end
+    tollCooldown = true
+    C_Timer.After(2 + 1, function() tollCooldown = false end)
+    ShowAlert("SACRED TOLL — DÉGÂTS RAID !", "global", SPELL_SACRED_TOLL)
+    M:ProgressBarCountdown(3, 2.0, "SACRED TOLL — DÉGÂTS RAID", "global", SPELL_SACRED_TOLL)
+end
+
+-- Blinding Light : Senn caste → interrompre dans 7s (cast long)
+local function OnBlindingLight()
+    if blindCooldown then return end
+    blindCooldown = true
+    C_Timer.After(BLINDING_CAST + 1, function() blindCooldown = false end)
+    ShowAlert("BLINDING LIGHT — INTERROMPRE !", "interrupt", SPELL_BLINDING)
+    M:ProgressBarCountdown(4, BLINDING_CAST, "BLINDING LIGHT — KICK", "interrupt", SPELL_BLINDING)
+end
+
+-- Sacred Shield : Senn cast → barre bleue 17s avec marker deadline rouge
+-- Quand le shield est détruit (SPELL_CAST_SUCCESS sur Blinding Light ou
+-- perte de l'aura shield), alerte kick.
+local function OnSacredShield()
+    if shieldActive then return end
+    shieldActive = true
+    ShowAlert("SACRED SHIELD — BURST LE BOUCLIER !", "interrupt", SPELL_SACRED_SHIELD)
+    -- Barre bleue slot 4 avec marker rouge à SACRED_SHIELD_DEADLINE secondes restantes
+    M:ProgressBarCountdownDeadline(4, SACRED_SHIELD_DUR, "SACRED SHIELD — BURST",
+        "phase", SPELL_SACRED_SHIELD, SACRED_SHIELD_DEADLINE)
+end
+
+local function OnSacredShieldBroken()
+    if not shieldActive then return end
+    shieldActive = false
+    M:ProgressBarHide(4)
+    -- Kick dès que le shield tombe
+    ShowAlert("SHIELD DÉTRUIT — KICK BLINDING LIGHT !", "interrupt", SPELL_BLINDING)
+end
+
+-- ─── Timeline (mécaniques sans cast CLEU fiable) ──────────────────────────────
 local function BuildTimerCallback(d)
-    if d == 15 then
-        return nil  -- Avenger's Shield (Héroïque) = tank ability, pas d'alerte
-    elseif d == 10 or d == 23 or d == 20 then
-        return function() ShowAlert("SACRED TOLL — CD DE SOIN !") end
-    elseif d == 17 then
-        return function() ShowAlert("SACRED SHIELD — BURST LE BOUCLIER !", "interrupt") end
-    elseif d == 18 then
+    if d == 10 or d == 23 or d == 20 then
+        -- Sacred Toll : aussi sur timeline comme fallback
+        return nil  -- géré par CLEU, pas de doublon
+    elseif d == 18 or d == 15 then
         return function() ShowAlert("DIVINE STORM — ÉVITEZ LES TORNADES !") end
     elseif d == 30 or d == 82 or d == 86 then
-        -- 30=Judgement Red(Héroïque/Normal pull), 82=Mythique, 86=Héroïque
         return function() ShowAlert("EXECUTION SENTENCE — SOAK LES CERCLES !", "soak", SPELL_EXEC) end
     elseif d == 35 then
-        return function() ShowAlert("AURA OF DEVOTION — BELLAMY SUR LE BORD !", "phase") end
+        return function() ShowAlert("AURA OF DEVOTION — BELLAMY SUR LE BORD !", "phase", SPELL_AURA_DEV) end
     elseif d == 38 or d == 26 or d == 29 or d == 22 then
-        return function() ShowAlert("DIVINE TOLL — ÉVITEZ LES BOUCLIERS !") end
-    elseif d == 47 or d == 7 or d == 59 then
-        return function() ShowAlert("SEARING RADIANCE — SOINS RAID !") end
+        return function() ShowAlert("DIVINE TOLL — ÉVITEZ LES BOUCLIERS !",  "global", SPELL_DIVINE_TOLL) end
     elseif d == 79 or d == 83 then
-        return function() ShowAlert("AURA OF WRATH — VENEL SUR LE BORD !", "phase") end
+        return function() ShowAlert("AURA OF WRATH — VENEL SUR LE BORD !", "phase", SPELL_AURA_WRATH) end
     elseif d == 131 or d == 132 then
-        return function() ShowAlert("AURA OF PEACE — SENN SUR LE BORD !", "phase") end
+        return function() ShowAlert("AURA OF PEACE — SENN SUR LE BORD !", "phase", SPELL_AURA_PEACE) end
     end
     return nil
 end
@@ -94,11 +164,12 @@ local function OnTimelineStateChanged(eventID)
     end
 end
 
+-- ─── UNIT_AURA : Execution Sentence (privé) + suivi Sacred Shield ────────────
 local function OnUnitAura(unit)
     if unit ~= "player" then return end
-    -- Auras boss taintées en Midnight (spellId secret) — player seulement
+
     local exec = C_UnitAuras.GetPlayerAuraBySpellID(SPELL_EXEC)
-              or C_UnitAuras.GetPlayerAuraBySpellID(1248994)
+              or C_UnitAuras.GetPlayerAuraBySpellID(SPELL_EXEC_ALT)
     if exec and not trackedAuras.exec then
         trackedAuras.exec = true
         ShowPrivate("EXECUTION SENTENCE — NE SUPERPOSEZ PAS !", SPELL_EXEC)
@@ -110,22 +181,25 @@ local function OnUnitAura(unit)
         trackedAuras.exec = nil
         M:ProgressBarHide(1)
     end
-    local blind = C_UnitAuras.GetPlayerAuraBySpellID(SPELL_BLIND)
-    if blind and not trackedAuras.blind then
-        trackedAuras.blind = true
-        ShowPrivate("BLINDING LIGHT — INTERROMPRE !", SPELL_BLIND)
-    elseif not blind then
-        trackedAuras.blind = nil
-    end
 end
 
+-- ─── Reset ────────────────────────────────────────────────────────────────────
 local function ResetState()
-    inFight = false
-    trackedAuras = {}
-    activeTimers = {}
+    inFight        = false
+    trackedAuras   = {}
+    activeTimers   = {}
+    shieldActive   = false
+    spreadCooldown = false
+    tollCooldown   = false
+    blindCooldown  = false
     M:ProgressBarHide(1)
+    M:ProgressBarHide(2)
+    M:ProgressBarHide(3)
+    M:ProgressBarHide(4)
+    UnregisterCLEU()
 end
 
+-- ─── Événements ───────────────────────────────────────────────────────────────
 frame:RegisterEvent("ENCOUNTER_START")
 frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -142,7 +216,9 @@ frame:SetScript("OnEvent", function(_, event, ...)
         if encounterID == ENCOUNTER_ID then
             ResetState()
             inFight = true
+            RegisterCLEU()
         end
+
     elseif event == "ENCOUNTER_END" then
         local encounterID, encounterName = ...
         if M.config and M.config.debugEncounter then
@@ -153,24 +229,66 @@ frame:SetScript("OnEvent", function(_, event, ...)
             M:HideText()
             M:HidePrivateText()
         end
+
     elseif event == "PLAYER_ENTERING_WORLD" then
         ResetState()
+
     elseif event == "ENCOUNTER_TIMELINE_EVENT_ADDED" then
         if not inFight then return end
         OnTimelineAdded(...)
+
     elseif event == "ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED" then
         if not inFight then return end
         OnTimelineStateChanged(...)
+
     elseif event == "UNIT_AURA" then
         if not inFight then return end
         OnUnitAura(...)
+
+    elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
+        if not inFight then return end
+        local _, subevent, _, _, _, _, _, _, _, _, _, spellId = CombatLogGetCurrentEventInfo()
+
+        if subevent == "SPELL_CAST_START" then
+            if     spellId == SPELL_SEARING_RAD  then OnSearingRadiance()
+            elseif spellId == SPELL_SACRED_TOLL  then OnSacredToll()
+            elseif spellId == SPELL_BLINDING     then OnBlindingLight()
+            elseif spellId == SPELL_SACRED_SHIELD then OnSacredShield()
+            end
+
+        elseif subevent == "SPELL_CAST_SUCCESS" then
+            -- Sacred Shield peut aussi fire sur CAST_SUCCESS
+            if spellId == SPELL_SACRED_SHIELD and not shieldActive then
+                OnSacredShield()
+            end
+
+        elseif subevent == "SPELL_AURA_REMOVED" then
+            -- Shield brisé = l'aura disparaît du boss → alerte kick
+            if spellId == SPELL_SACRED_SHIELD then
+                OnSacredShieldBroken()
+            end
+        end
     end
 end)
 
 SLASH_LHVANGUARDTEST1 = "/lhvanguardtest"
-SlashCmdList["LHVANGUARDTEST"] = function()
-    ShowAlert("DIVINE STORM — ÉVITEZ LES TORNADES !")
-    ShowAlert("AURA OF PEACE — SENN SUR LE BORD !", "phase")
-    ShowPrivate("EXECUTION SENTENCE — NE SUPERPOSEZ PAS !")
-    ShowPrivate("BLINDING LIGHT — INTERROMPRE !")
+SlashCmdList["LHVANGUARDTEST"] = function(arg)
+    if arg == "spread" then
+        OnSearingRadiance()
+    elseif arg == "toll" then
+        OnSacredToll()
+    elseif arg == "blind" then
+        OnBlindingLight()
+    elseif arg == "shield" then
+        OnSacredShield()
+    elseif arg == "broken" then
+        OnSacredShieldBroken()
+    elseif arg == "exec" then
+        ShowAlert("EXECUTION SENTENCE — SOAK LES CERCLES !", "soak", SPELL_EXEC)
+        ShowPrivate("EXECUTION SENTENCE — NE SUPERPOSEZ PAS !", SPELL_EXEC)
+    elseif arg == "peace" then
+        ShowAlert("AURA OF PEACE — SENN SUR LE BORD !", "phase", SPELL_AURA_PEACE)
+    else
+        print("|cff00ff00LH Vanguard|r /lhvanguardtest spread|toll|blind|shield|broken|exec|peace")
+    end
 end
