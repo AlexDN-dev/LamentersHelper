@@ -28,8 +28,14 @@ local function GetMiasmaRotation()
            { "Lill\195\164ka", "Smiths", "Wadabloom", "C\195\164bron" }
 end
 
+-- ─── Helpers rôles ───────────────────────────────────────────────────────────
+local function IsHealer()
+    return M:GetRole() == "HEALER"
+end
+
 -- ─── Détection groupe raid (soak) ────────────────────────────────────────────
-local soakCount = 0
+local soakCount  = 0
+local breathCount = 0   -- compteur Corrupted Devastation (Phase 2)
 
 local function GetPlayerRaidGroup()
     for i = 1, GetNumGroupMembers() do
@@ -90,6 +96,12 @@ local function OnMiasmaApplied(destName)
     local assigned = rot[idx]
     local myName   = UnitName("player")
 
+    -- Alerte générale pour tous les heals (texte privé 3 sec)
+    if IsHealer() then
+        ShowPrivate("DISPELS — |cffffff00" .. destName .. "|r !", CONSUMING_MIASMA_ID)
+    end
+
+    -- Alerte spécifique avec son dispel pour le heal assigné
     if myName == assigned then
         ShowDispel("DISPELL  |cffffff00" .. destName .. "|r  !", CONSUMING_MIASMA_ID)
     end
@@ -128,6 +140,8 @@ local function OnUpheavalApplied(destName)
     local groupLabel = isGroupA and "GROUPE A (1&3)" or "GROUPE B (2&4)"
 
     ShowAlert("[UPHEAVAL]  " .. groupLabel .. "  — SOAK !", "soak", ALNDUST_UPHEAVAL_ID)
+    -- Barre fill : les adds apparaissent dans le Rift dans ~4 sec
+    M:ProgressBarFill(3, 4, "ADDS SPAWN", "phase", ALNDUST_UPHEAVAL_ID)
 
     local myGroup = GetPlayerRaidGroup()
     local myTurn  = myGroup and (
@@ -172,16 +186,26 @@ end
 -- ─── Consume : canal boss → tuer les adds ────────────────────────────────────
 local function OnConsumeCast()
     ShowAlert("CONSUME — TUEZ LES ADDS RESTANTS !", "phase", CONSUME_ID)
+    ShowPrivate("CONSUME !", CONSUME_ID)
     M:ProgressBarCountdown(1, 10, "CONSUME", "phase", CONSUME_ID)
+    -- Rappel 3 sec avant la fin du canal (T+7)
+    C_Timer.After(7, function()
+        if inFight then ShowPrivate("CONSUME — 3 SEC !", CONSUME_ID) end
+    end)
 end
 
 -- ─── Corrupted Devastation : Phase 2 ligne ───────────────────────────────────
+-- Chaque cast = un "Breath" numéroté. Barre fill 4 sec (cast time).
 local function OnCorruptedDevCast()
-    ShowAlert("CORRUPTED DEVASTATION — ÉVITEZ LA LIGNE !", "phase", CORRUPTED_DEV_ID)
+    breathCount = breathCount + 1
+    local label = "BREATH " .. breathCount
+    ShowAlert(label .. " — ÉVITEZ LA LIGNE !", "phase", CORRUPTED_DEV_ID)
+    M:ProgressBarFill(1, 4, label, "phase", CORRUPTED_DEV_ID)
 end
 
 -- ─── Ravenous Dive : transition retour phase 1 ───────────────────────────────
 local function OnRavenousDiveCast()
+    breathCount = 0   -- reset au retour P1 pour la prochaine transition
     ShowAlert("RAVENOUS DIVE — RETOUR PHASE 1 !", "phase", RAVENOUS_DIVE_ID)
 end
 
@@ -242,9 +266,12 @@ local function ResetState()
     trackedAuras     = {}
     miasmaCount      = 0
     soakCount        = 0
+    breathCount      = 0
     fearCryCooldown  = false
     M:ProgressBarHide(1)
     M:ProgressBarHide(2)
+    M:ProgressBarHide(3)
+    M:ProgressBarHide(4)
     UnregisterCLEU()
 end
 

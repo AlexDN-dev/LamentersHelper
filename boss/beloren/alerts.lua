@@ -70,7 +70,8 @@ local ICON_VOID  = 7636525   -- inv_12_dualityphoenix_void_feather   (Void Feath
 
 local MASK_TEX = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
 
-local auraIconFrame = nil
+local auraIconFrame  = nil
+local anchorPreview  = false   -- true = icône forcée visible pour positionnement
 
 local function BuildAuraIconFrame()
     if auraIconFrame then return end
@@ -145,7 +146,7 @@ local function UpdateAuraIconFrame()
     local aura = GetMyAura()
 
     if not aura or not inFight then
-        auraIconFrame:Hide()
+        if not anchorPreview then auraIconFrame:Hide() end
         return
     end
 
@@ -162,6 +163,23 @@ local function UpdateAuraIconFrame()
     end
 
     auraIconFrame:Show()
+end
+
+--- Affiche/cache l'icône en mode "ancre" pour la positionner librement hors combat.
+function M:ToggleBelorenAuraAnchor()
+    if not auraIconFrame then BuildAuraIconFrame() end
+    anchorPreview = not anchorPreview
+    if anchorPreview then
+        -- Prévisualisation avec icône Lumière + label ANCRE
+        auraIconFrame._icon:SetTexture(ICON_LIGHT)
+        auraIconFrame._ring:SetColorTexture(1.0, 0.78, 0.05, 1.0)
+        auraIconFrame._label:SetText("|cffffcc00ANCRE|r")
+        auraIconFrame:Show()
+    else
+        if not inFight then auraIconFrame:Hide() end
+        -- Si en combat, UpdateAuraIconFrame reprendra le contrôle
+        if inFight then UpdateAuraIconFrame() end
+    end
 end
 
 -- API publique — appelée depuis options.lua pour repositionner/redimensionner
@@ -577,6 +595,7 @@ local function ResetState()
     end
     M:ProgressBarHide(1)
     M:ProgressBarHide(2)
+    anchorPreview = false
     if auraIconFrame then auraIconFrame:Hide() end
     UnregisterCLEU()
 end

@@ -275,6 +275,42 @@ function M:ProgressBarCountdownDeadline(slotIndex, durationSeconds, titleText, a
     end)
 end
 
+--- Barre qui se REMPLIT de gauche à droite sur durationSeconds.
+--- Le timer à droite affiche le temps restant (compte à rebours).
+--- Se cache automatiquement quand la durée est écoulée.
+function M:ProgressBarFill(slotIndex, durationSeconds, titleText, alertType, spellID)
+    if not durationSeconds or durationSeconds <= 0 then
+        self:ProgressBarHide(slotIndex)
+        return
+    end
+    local f = GetOrCreateBar(slotIndex)
+    f._countdownTitle = titleText or ""
+    ApplyBarFillColor(f.statusBar, alertType)
+    f.statusBar:SetMinMaxValues(0, durationSeconds)
+    f.statusBar:SetValue(0)
+    SetBarIcon(f, spellID)
+    SetDeadlineMarker(f, nil)
+    UpdateCountdownTexts(f, durationSeconds)
+    f:Show()
+
+    if f.animTicker then f.animTicker:Cancel(); f.animTicker = nil end
+
+    local startT = GetTime()
+    f.animTicker = C_Timer.NewTicker(0.03, function()
+        local elapsed = GetTime() - startT
+        local left    = durationSeconds - elapsed
+        if left <= 0 then
+            f.statusBar:SetValue(durationSeconds)
+            UpdateCountdownTexts(f, 0)
+            if f.animTicker then f.animTicker:Cancel(); f.animTicker = nil end
+            f:Hide()
+            return
+        end
+        f.statusBar:SetValue(elapsed)
+        UpdateCountdownTexts(f, left)
+    end)
+end
+
 function M:ProgressBarTest(slotIndex, seconds, titleText)
     self:ProgressBarCountdown(slotIndex or 1, seconds or 12, titleText or "test")
 end

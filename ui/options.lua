@@ -1109,9 +1109,16 @@ function M:CreateBelorenPanel()
         "TOPLEFT", frame, "TOPLEFT", 440, -582,
         function() if M.RepositionBelorenAuraIcon then M:RepositionBelorenAuraIcon() end end)
 
+    -- Bouton ancre (affiche l'icône hors combat pour la positionner par drag)
+    local anchorBtn = M.MakeBtn(frame, "Afficher ancre icône", 160, 26)
+    anchorBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -618)
+    anchorBtn:SetScript("OnClick", function()
+        if M.ToggleBelorenAuraAnchor then M:ToggleBelorenAuraAnchor() end
+    end)
+
     -- Bouton Reset position
     local resetIconBtn = M.MakeBtn(frame, "Reset position", 130, 26)
-    resetIconBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -618)
+    resetIconBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 170, -618)
     resetIconBtn:SetScript("OnClick", function()
         M.config.belorenAuraIconX    = 0
         M.config.belorenAuraIconY    = -200
