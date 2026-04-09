@@ -27,6 +27,9 @@ end
 local SPELL_DESPOTIC   = 1248697
 local SPELL_UMBRAL_B   = 1260030
 local SPELL_DESTAB     = 1271577
+-- À confirmer via debugEncounter (icônes des barres globales)
+local SPELL_FRACTURED  = 1249025  -- Shadow Fracture (le cast de l'add Fractured Image)
+local SPELL_ENTROPIC   = 1253891  -- Entropic Unraveling
 
 -- Durées confirmées BigWigs Salhadaar (TimersOther) :
 --   11           → Void Convergence (pull)
@@ -46,12 +49,19 @@ local function BuildTimerCallback(d, dExact)
     elseif d == 27 or d == 22 then
         return function() ShowAlert("DESPOTIC COMMAND — UN JOUEUR CIBLÉ !", "soak", SPELL_DESPOTIC) end
     elseif d == 18 then
-        -- Shadow Fracture : cast time 12s sur Mythique (était 9s — nerf weekly reset)
-        return function() ShowAlert("FRACTURED IMAGE INVOQUÉ — INTERROMPEZ (12s) !") end
+        -- Shadow Fracture : cast time 12s Mythique → barre interrupt 12s pour tout le raid
+        return function()
+            ShowAlert("FRACTURED IMAGE — KICK !", "interrupt", SPELL_FRACTURED)
+            M:ProgressBarCountdown(3, 12, "FRACTURED IMAGE — KICK", "interrupt", SPELL_FRACTURED)
+        end
     elseif d == 42 or d == 44 then
         return function() ShowAlert("SHATTERING TWILIGHT — ATTENTION !") end
     elseif d == 100 then
-        return function() ShowAlert("ENTROPIC UNRAVELING — MÉCANIQUE DE PHASE !", "phase") end
+        -- Entropic Unraveling = le "spin" de 100s → barre phase pour tout le raid
+        return function()
+            ShowAlert("ENTROPIC UNRAVELING — MÉCANIQUE DE PHASE !", "phase", SPELL_ENTROPIC)
+            M:ProgressBarCountdown(4, 100, "SPIN — ENTROPIC UNRAVELING", "phase", SPELL_ENTROPIC)
+        end
     end
 
     -- ~46.5 vs ~46 : distinguer par la demi-seconde
@@ -154,6 +164,8 @@ local function ResetState()
     ambig45Count = 0
     M:ProgressBarHide(1)
     M:ProgressBarHide(2)
+    M:ProgressBarHide(3)
+    M:ProgressBarHide(4)
 end
 
 frame:RegisterEvent("ENCOUNTER_START")
