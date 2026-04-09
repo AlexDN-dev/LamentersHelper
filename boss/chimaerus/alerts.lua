@@ -294,12 +294,12 @@ SlashCmdList["LHCHIMAERTEST"] = function(arg)
     end
 end
 
+-- ─── Enregistrement des événements ──────────────────────────────────────────
 frame:RegisterEvent("ENCOUNTER_START")
 frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED")
-frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 frame:RegisterUnitEvent("UNIT_AURA", "player")
 
 frame:SetScript("OnEvent", function(_, event, ...)
@@ -326,7 +326,14 @@ frame:SetScript("OnEvent", function(_, event, ...)
 
     elseif event == "ENCOUNTER_TIMELINE_EVENT_ADDED" then
         if not inFight then return end
-        OnTimelineAdded(...)
+        local eventInfo = ...
+        if M.config and M.config.debugEncounter then
+            print(string.format("|cff00ff00LH Debug|r CHIMAERUS TIMELINE dur=%.1f id=%d spellID=%s",
+                eventInfo and eventInfo.duration or 0,
+                eventInfo and eventInfo.id or 0,
+                tostring(eventInfo and eventInfo.spellID)))
+        end
+        OnTimelineAdded(eventInfo)
 
     elseif event == "ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED" then
         if not inFight then return end
@@ -335,44 +342,45 @@ frame:SetScript("OnEvent", function(_, event, ...)
     elseif event == "UNIT_AURA" then
         if not inFight then return end
         OnUnitAura(...)
+    end
+end)
 
-    elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
-        -- ── Debug alive : confirme que CLEU est reçu (sans guard inFight) ──
-        if M.config and M.config.debugEncounter then
-            if not seenCLEU["_alive"] then
-                seenCLEU["_alive"] = true
-                print(string.format("|cffff8000LH CLEU|r ACTIF — inFight=%s", tostring(inFight)))
+-- ─── Frame dédié CLEU (séparé pour compatibilité Midnight) ──────────────────
+local cleuFrame = CreateFrame("Frame")
+cleuFrame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+cleuFrame:SetScript("OnEvent", function()
+    if M.config and M.config.debugEncounter then
+        if not seenCLEU["_alive"] then
+            seenCLEU["_alive"] = true
+            print(string.format("|cffff8000LH CLEU|r ACTIF — inFight=%s", tostring(inFight)))
+        end
+    end
+
+    if not inFight then return end
+    local _, subevent, _, _, srcName, _, _, _, destName, _, _, spellId, spellName = CombatLogGetCurrentEventInfo()
+
+    if M.config and M.config.debugEncounter then
+        if subevent == "SPELL_CAST_START" or subevent == "SPELL_AURA_APPLIED" then
+            local key = subevent .. ":" .. tostring(spellId)
+            if not seenCLEU[key] then
+                seenCLEU[key] = true
+                print(string.format("|cffff8000LH CLEU|r %s id=%s src=%s \"%s\"",
+                    subevent, tostring(spellId), tostring(srcName), tostring(spellName)))
             end
         end
+    end
 
-        if not inFight then return end
-        local _, subevent, _, srcGUID, srcName, srcFlags, _, _, destName, _, _, spellId, spellName = CombatLogGetCurrentEventInfo()
-
-        -- ── Debug : capture tous les IDs uniques (CAST_START + AURA_APPLIED) ──
-        if M.config and M.config.debugEncounter then
-            if subevent == "SPELL_CAST_START" or subevent == "SPELL_AURA_APPLIED" then
-                local key = subevent .. ":" .. tostring(spellId)
-                if not seenCLEU[key] then
-                    seenCLEU[key] = true
-                    print(string.format("|cffff8000LH CLEU|r %s id=%s src=%s \"%s\"",
-                        subevent, tostring(spellId), tostring(srcName), tostring(spellName)))
-                end
-            end
+    if subevent == "SPELL_AURA_APPLIED" then
+        if     spellId == CONSUMING_MIASMA_ID  then OnMiasmaApplied(destName)
+        elseif spellId == RIFT_MADNESS_ID      then OnRiftMadnessApplied(destName)
+        elseif spellId == ALNDUST_UPHEAVAL_ID  then OnUpheavalApplied(destName)
+        elseif spellId == RENDING_TEAR_ID      then OnRendingTearApplied(destName)
         end
-
-        if subevent == "SPELL_AURA_APPLIED" then
-            if    spellId == CONSUMING_MIASMA_ID then OnMiasmaApplied(destName)
-            elseif spellId == RIFT_MADNESS_ID    then OnRiftMadnessApplied(destName)
-            elseif spellId == ALNDUST_UPHEAVAL_ID then OnUpheavalApplied(destName)
-            elseif spellId == RENDING_TEAR_ID    then OnRendingTearApplied(destName)
-            end
-
-        elseif subevent == "SPELL_CAST_START" then
-            if    spellId == FEARSOME_CRY_ID  then OnFearsomeCryCast()
-            elseif spellId == CONSUME_ID       then OnConsumeCast()
-            elseif spellId == CORRUPTED_DEV_ID then OnCorruptedDevCast()
-            elseif spellId == RAVENOUS_DIVE_ID then OnRavenousDiveCast()
-            end
+    elseif subevent == "SPELL_CAST_START" then
+        if     spellId == FEARSOME_CRY_ID   then OnFearsomeCryCast()
+        elseif spellId == CONSUME_ID         then OnConsumeCast()
+        elseif spellId == CORRUPTED_DEV_ID   then OnCorruptedDevCast()
+        elseif spellId == RAVENOUS_DIVE_ID   then OnRavenousDiveCast()
         end
     end
 end)
