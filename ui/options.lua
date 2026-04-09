@@ -1083,6 +1083,46 @@ function M:CreateBelorenPanel()
         prevTest = btn
     end
 
+    -- ── Icône d'aura persistante ─────────────────────────────────────────────
+    SectionHeader(frame, "Ic\195\180ne d'aura (affich\195\169e tout le fight)", -510)
+
+    local iconInfo = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    iconInfo:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -548)
+    iconInfo:SetTextColor(0.60, 0.60, 0.65)
+    iconInfo:SetText("L'ic\195\180ne reste affich\195\169e en permanence pendant le combat et se met \195\160 jour automatiquement.")
+
+    -- Slider X
+    local iconXSlider = MakeSlider(frame, "BelorenIconX", "Position X", -500, 500,
+        "belorenAuraIconX",
+        "TOPLEFT", frame, "TOPLEFT", 0, -582,
+        function() if M.RepositionBelorenAuraIcon then M:RepositionBelorenAuraIcon() end end)
+
+    -- Slider Y
+    local iconYSlider = MakeSlider(frame, "BelorenIconY", "Position Y", -400, 400,
+        "belorenAuraIconY",
+        "TOPLEFT", frame, "TOPLEFT", 220, -582,
+        function() if M.RepositionBelorenAuraIcon then M:RepositionBelorenAuraIcon() end end)
+
+    -- Slider Taille
+    local iconSizeSlider = MakeSlider(frame, "BelorenIconSize", "Taille", 30, 150,
+        "belorenAuraIconSize",
+        "TOPLEFT", frame, "TOPLEFT", 440, -582,
+        function() if M.RepositionBelorenAuraIcon then M:RepositionBelorenAuraIcon() end end)
+
+    -- Bouton Reset position
+    local resetIconBtn = M.MakeBtn(frame, "Reset position", 130, 26)
+    resetIconBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -618)
+    resetIconBtn:SetScript("OnClick", function()
+        M.config.belorenAuraIconX    = 0
+        M.config.belorenAuraIconY    = -200
+        M.config.belorenAuraIconSize = 80
+        if M.SaveConfig then M:SaveConfig() end
+        iconXSlider:SetValue(0)
+        iconYSlider:SetValue(-200)
+        iconSizeSlider:SetValue(80)
+        if M.RepositionBelorenAuraIcon then M:RepositionBelorenAuraIcon() end
+    end)
+
     frame:SetScript("OnShow", function()
         UpdateAuraStatus()
         -- Sync le libellé du dropdown avec la config courante
@@ -1093,6 +1133,10 @@ function M:CreateBelorenPanel()
                 break
             end
         end
+        -- Sync sliders icône
+        iconXSlider:SetValue(M.config.belorenAuraIconX    or 0)
+        iconYSlider:SetValue(M.config.belorenAuraIconY    or -200)
+        iconSizeSlider:SetValue(M.config.belorenAuraIconSize or 80)
     end)
 
     return frame

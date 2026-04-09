@@ -62,6 +62,115 @@ local deathDropCooldown   = false
 
 local frame = CreateFrame("Frame")
 
+-- ─── Icône d'aura persistante ────────────────────────────────────────────────
+-- Affichée en permanence pendant tout le fight pour rappeler VIDE ou LUMIÈRE.
+local auraIconFrame = nil
+
+local function BuildAuraIconFrame()
+    if auraIconFrame then return end
+    local x    = M.config and M.config.belorenAuraIconX    or 0
+    local y    = M.config and M.config.belorenAuraIconY    or -200
+    local size = M.config and M.config.belorenAuraIconSize or 80
+
+    local f = CreateFrame("Frame", "LHBelorenAuraIcon", UIParent)
+    f:SetSize(size, size)
+    f:SetPoint("CENTER", UIParent, "CENTER", x, y)
+    f:SetFrameStrata("HIGH")
+    f:SetMovable(true)
+    f:SetClampedToScreen(true)
+    f:EnableMouse(true)
+    f:RegisterForDrag("LeftButton")
+
+    -- Fond circulaire semi-transparent
+    local bg = f:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask")
+    bg:SetVertexColor(0, 0, 0, 0.65)
+    f._bg = bg
+
+    -- Icône du sort (teintée selon l'aura)
+    local icon = f:CreateTexture(nil, "ARTWORK")
+    icon:SetPoint("TOPLEFT", 6, -6)
+    icon:SetPoint("BOTTOMRIGHT", -6, 6)
+    f._icon = icon
+
+    -- Bordure colorée
+    local border = f:CreateTexture(nil, "OVERLAY")
+    border:SetPoint("TOPLEFT", -3, 3)
+    border:SetPoint("BOTTOMRIGHT", 3, -3)
+    border:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask")
+    f._border = border
+
+    -- Texte d'aura sous l'icône
+    local lbl = f:CreateFontString(nil, "OVERLAY")
+    lbl:SetFont("Fonts\\FRIZQT__.TTF", 13, "OUTLINE")
+    lbl:SetPoint("TOP", f, "BOTTOM", 0, -4)
+    f._label = lbl
+
+    -- Drag pour repositionner (hors combat uniquement)
+    f:SetScript("OnDragStart", function(self)
+        if InCombatLockdown() then return end
+        self:StartMoving()
+    end)
+    f:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        if M.config then
+            local cx, cy = self:GetCenter()
+            local px, py = UIParent:GetCenter()
+            M.config.belorenAuraIconX = math.floor(cx - px + 0.5)
+            M.config.belorenAuraIconY = math.floor(cy - py + 0.5)
+            if M.SaveConfig then M:SaveConfig() end
+        end
+    end)
+
+    f:Hide()
+    auraIconFrame = f
+end
+
+local function UpdateAuraIconFrame()
+    if not auraIconFrame then BuildAuraIconFrame() end
+    local aura = GetMyAura()
+
+    -- Masquer si pas d'aura connue ou hors combat
+    if not aura or not inFight then
+        auraIconFrame:Hide()
+        return
+    end
+
+    -- Récupère l'icône du sort via le jeu (texture réelle de la mécanique)
+    local tex = C_Spell.GetSpellTexture and C_Spell.GetSpellTexture(VOID_CONVERGENCE_ID)
+               or GetSpellTexture and GetSpellTexture(VOID_CONVERGENCE_ID)
+    if tex then
+        auraIconFrame._icon:SetTexture(tex)
+    else
+        -- Fallback : icône générique phoenix / oiseau de feu (Al'ar)
+        auraIconFrame._icon:SetTexture("Interface\\Icons\\inv_firebird_01")
+    end
+
+    if aura == "VOID" then
+        auraIconFrame._icon:SetVertexColor(0.75, 0.35, 1.0)           -- teinte violette
+        auraIconFrame._border:SetVertexColor(0.55, 0.10, 0.90, 0.90)
+        auraIconFrame._label:SetText("|cffb05be8VIDE|r")
+    else
+        auraIconFrame._icon:SetVertexColor(1.0, 0.88, 0.25)           -- teinte dorée
+        auraIconFrame._border:SetVertexColor(1.0, 0.80, 0.05, 0.90)
+        auraIconFrame._label:SetText("|cffffcc00LUMI\195\136RE|r")
+    end
+
+    auraIconFrame:Show()
+end
+
+-- API publique — appelée depuis options.lua pour repositionner/redimensionner sans rechargement
+function M:RepositionBelorenAuraIcon()
+    if not auraIconFrame then return end
+    local x    = M.config and M.config.belorenAuraIconX    or 0
+    local y    = M.config and M.config.belorenAuraIconY    or -200
+    local size = M.config and M.config.belorenAuraIconSize or 80
+    auraIconFrame:ClearAllPoints()
+    auraIconFrame:SetPoint("CENTER", UIParent, "CENTER", x, y)
+    auraIconFrame:SetSize(size, size)
+end
+
 -- ─── Détection et label de l'aura ─────────────────────────────────────────────
 local function GetMyAura()
     -- La config prend toujours la priorité (changeable dans /lh → Belo'ren)
@@ -398,6 +507,7 @@ local function OnUnitAura(unit)
             -- Première détection en début de combat
             ShowPrivate("AURA DÉTECTÉE : " .. AuraLabel(myAura), VOID_CONVERGENCE_ID)
         end
+        UpdateAuraIconFrame()  -- met à jour l'icône immédiatement
     elseif not detected and not inFight then
         -- Hors combat : on peut reset (wipe, entre les essais)
         trackedAuras.aura = nil
@@ -463,6 +573,7 @@ local function ResetState()
     end
     M:ProgressBarHide(1)
     M:ProgressBarHide(2)
+    if auraIconFrame then auraIconFrame:Hide() end
     UnregisterCLEU()
 end
 
@@ -537,12 +648,17 @@ end
 frame:RegisterEvent("ENCOUNTER_START")
 frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED")
 frame:RegisterUnitEvent("UNIT_AURA", "player")
 
 frame:SetScript("OnEvent", function(_, event, ...)
-    if event == "ENCOUNTER_START" then
+    if event == "PLAYER_LOGIN" then
+        -- Pré-construit le frame dès le login pour éviter une création en plein combat
+        BuildAuraIconFrame()
+
+    elseif event == "ENCOUNTER_START" then
         local encounterID, encounterName = ...
         if M.config and M.config.debugEncounter then
             print(string.format("|cff00ff00LH Debug|r START: %s (ID: %s)", tostring(encounterName), tostring(encounterID)))
@@ -552,6 +668,8 @@ frame:SetScript("OnEvent", function(_, event, ...)
             inFight = true
             RegisterCLEU()
             StartAuraReminder()
+            -- Affiche l'icône si l'aura est déjà connue (config manuelle)
+            UpdateAuraIconFrame()
         end
 
     elseif event == "ENCOUNTER_END" then

@@ -74,7 +74,12 @@ local defaults = {
 
     -- Belo'ren — Aura Vide/Lumière (change à chaque essai)
     -- AUTO = détection via UNIT_AURA | "VOID" | "LIGHT" = override manuel
-    belorenPlayerAura = "AUTO",
+    belorenPlayerAura   = "AUTO",
+
+    -- Belo'ren — Icône d'aura persistante (affichée tout le fight)
+    belorenAuraIconX    = 0,
+    belorenAuraIconY    = -200,
+    belorenAuraIconSize = 80,
 
     -- Positions par boss — { bossKey = { posXKey = val, posYKey = val, ... } }
     -- Si absent pour un boss, fallback sur les positions globales (posX/posY etc.)
