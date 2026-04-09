@@ -107,16 +107,26 @@ local function OnUnitAura(unit)
     if despotic and not despoticActive then
         despoticActive = true
         ShowPrivate("DESPOTIC COMMAND — BOUGEZ !", SPELL_DESPOTIC)
+        local dur = (despotic.expirationTime and despotic.expirationTime > 0)
+                    and (despotic.expirationTime - GetTime())
+                    or (despotic.duration or 8)
+        M:ProgressBarCountdown(1, dur, "DESPOTIC COMMAND", "soak", SPELL_DESPOTIC)
     elseif not despotic then
         despoticActive = false
+        M:ProgressBarHide(1)
     end
 
     local umbral = C_UnitAuras.GetPlayerAuraBySpellID(SPELL_UMBRAL_B)
     if umbral and not umbralBeamsActive then
         umbralBeamsActive = true
         ShowPrivate("UMBRAL BEAMS — BOUGEZ !", SPELL_UMBRAL_B)
+        local dur = (umbral.expirationTime and umbral.expirationTime > 0)
+                    and (umbral.expirationTime - GetTime())
+                    or (umbral.duration or 8)
+        M:ProgressBarCountdown(2, dur, "UMBRAL BEAMS", "phase", SPELL_UMBRAL_B)
     elseif not umbral then
         umbralBeamsActive = false
+        M:ProgressBarHide(2)
     end
 
     local aura = M.FindAura("player", SPELL_DESTAB, "HARMFUL")
@@ -142,6 +152,8 @@ local function ResetState()
     umbralBeamsActive = false
     activeTimers = {}
     ambig45Count = 0
+    M:ProgressBarHide(1)
+    M:ProgressBarHide(2)
 end
 
 frame:RegisterEvent("ENCOUNTER_START")

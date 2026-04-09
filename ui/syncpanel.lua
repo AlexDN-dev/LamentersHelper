@@ -37,14 +37,22 @@ function M:CreateSyncPanel()
     counter:SetPoint("TOPLEFT", 24, -150)
     counter:SetText("")
 
-    -- ─── Lignes de résultats (max 20 membres) ────────────────────────────────
+    -- ─── ScrollFrame ──────────────────────────────────────────────────────────
+    local scrollFrame = CreateFrame("ScrollFrame", nil, frame, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT",     24,  -172)
+    scrollFrame:SetPoint("BOTTOMRIGHT", -28, 8)
+
+    local content = CreateFrame("Frame", nil, scrollFrame)
+    content:SetWidth(scrollFrame:GetWidth() or 560)
+    scrollFrame:SetScrollChild(content)
+
+    -- ─── Lignes de résultats ──────────────────────────────────────────────────
     local rows = {}
     local ROW_HEIGHT = 20
-    local ROW_START_Y = -172
 
     for i = 1, 40 do
-        local fs = frame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        fs:SetPoint("TOPLEFT", 24, ROW_START_Y - (i - 1) * ROW_HEIGHT)
+        local fs = content:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        fs:SetPoint("TOPLEFT", 0, -(i - 1) * ROW_HEIGHT)
         fs:SetText("")
         fs:Hide()
         rows[i] = fs
@@ -65,10 +73,10 @@ function M:CreateSyncPanel()
 
         if #sorted == 0 then
             counter:SetText("|cffaaaaaa Cliquez sur 'Lancer la verification' pour commencer.|r")
+            content:SetHeight(20)
             return
         end
 
-        -- Tri : ok → outdated → missing, puis alphabétique
         local order = { ok = 1, outdated = 2, missing = 3 }
         table.sort(sorted, function(a, b)
             local oa = order[a.data.status] or 4
@@ -77,7 +85,6 @@ function M:CreateSyncPanel()
             return a.name < b.name
         end)
 
-        -- Compteur
         local okCount = 0
         for _, e in ipairs(sorted) do
             if e.data.status == "ok" then okCount = okCount + 1 end
@@ -87,7 +94,6 @@ function M:CreateSyncPanel()
             okCount, #sorted
         ))
 
-        -- Lignes
         for i, entry in ipairs(sorted) do
             if rows[i] then
                 local icon, color, suffix
@@ -108,6 +114,8 @@ function M:CreateSyncPanel()
                 rows[i]:Show()
             end
         end
+
+        content:SetHeight(math.max(#sorted * ROW_HEIGHT, 20))
     end
 
     M.OnSyncUpdate = Refresh
@@ -117,7 +125,7 @@ function M:CreateSyncPanel()
         local ok, err = M:StartVersionCheck()
         if not ok then
             if err == "not_privileged" then
-                statusMsg:SetText("|cffff4444Reservé au Raid Leader et aux assistants|r")
+                statusMsg:SetText("|cffff4444Reserve au Raid Leader et aux assistants|r")
             elseif err == "not_in_group" then
                 statusMsg:SetText("|cffff4444Vous n'etes pas dans un groupe|r")
             end

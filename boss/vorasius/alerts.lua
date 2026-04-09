@@ -132,13 +132,13 @@ local function BuildTimerCallback(d)
             local kills  = mythic and "3 kills/mur" or "2 kills/mur"
             if role == "MELEE" then
                 ShowAlert("ECTOCLOQUES — KITEZ VERS LA GAUCHE ! (" .. kills .. ")", "interrupt")
-                ShowPrivate("TOI → MUR GAUCHE  (tu es mêlée)")
+                M:ShowPrivateText("TOI \226\134\146 MUR GAUCHE  (tu es m\195\170l\195\169e)")
             elseif role == "RANGE" then
                 ShowAlert("ECTOCLOQUES — KITEZ VERS LA DROITE ! (" .. kills .. ")", "interrupt")
-                ShowPrivate("TOI → MUR DROIT  (tu es distance)")
+                M:ShowPrivateText("TOI \226\134\146 MUR DROIT  (tu es distance)")
             elseif role == "HEALER" then
                 ShowAlert("ECTOCLOQUES — DISSIPEZ LES RALENTISSEMENTS !", "interrupt")
-                ShowPrivate("HEALER : dispel le ralentissement des fixated")
+                M:ShowPrivateText("HEALER : dispel le ralentissement des fixated")
             elseif role == "TANK" then
                 ShowAlert("ECTOCLOQUES — GÉREZ LES ADDS ! (" .. kills .. ")", "interrupt")
             else
@@ -197,7 +197,11 @@ local function OnCLEU()
         if spellID == VOID_BREATH_ID and not voidBreathActive then
             voidBreathActive = true
             ShowAlert("SOUFFLE DU VIDE — OBSERVEZ LE DÉPART DU RAYON !", "phase", VOID_BREATH_ID)
-            C_Timer.After(16, function() voidBreathActive = false end)
+            M:ProgressBarCountdown(3, 16, "SOUFFLE DU VIDE", "phase", VOID_BREATH_ID)
+            C_Timer.After(16, function()
+                voidBreathActive = false
+                M:ProgressBarHide(3)
+            end)
         end
     end
 
@@ -256,7 +260,7 @@ local function OnUnitAura(unit)
         local dur = (blister.expirationTime and blister.expirationTime > 0)
                     and (blister.expirationTime - GetTime())
                     or (blister.duration or 30)
-        M:ProgressBarCountdown(1, dur, "BLISTERBURST — +100% DMG", "soak")
+        M:ProgressBarCountdown(1, dur, "BLISTERBURST", "soak", BLISTERBURST_AURA)
     elseif not blister and blistered then
         -- Guard : on ne cache que si la barre était active, pas à chaque UNIT_AURA
         blistered = false
@@ -277,7 +281,7 @@ local function OnUnitAura(unit)
             local timeLeft = (aura.expirationTime and aura.expirationTime > 0)
                              and (aura.expirationTime - GetTime())
                              or (aura.duration or 20)
-            M:ProgressBarCountdown(2, timeLeft, "SMASHED \215" .. stacks, "interrupt")
+            M:ProgressBarCountdown(2, timeLeft, "SMASHED \215" .. stacks, "interrupt", SMASHED_AURA)
         end
     elseif smashedStacks > 0 then
         -- Guard : on ne cache que si des stacks étaient trackés
@@ -395,13 +399,13 @@ SlashCmdList["LHVORASIUSTEST"] = function(arg)
     elseif arg == "adds" then
         if role == "MELEE" then
             ShowAlert("ECTOCLOQUES — KITEZ VERS LA GAUCHE ! (" .. kills .. ")", "interrupt")
-            ShowPrivate("TOI → MUR GAUCHE  (tu es mêlée)")
+            M:ShowPrivateText("TOI \226\134\146 MUR GAUCHE  (tu es m\195\170l\195\169e)")
         elseif role == "RANGE" then
             ShowAlert("ECTOCLOQUES — KITEZ VERS LA DROITE ! (" .. kills .. ")", "interrupt")
-            ShowPrivate("TOI → MUR DROIT  (tu es distance)")
+            M:ShowPrivateText("TOI \226\134\146 MUR DROIT  (tu es distance)")
         elseif role == "HEALER" then
             ShowAlert("ECTOCLOQUES — DISSIPEZ LES RALENTISSEMENTS !", "interrupt")
-            ShowPrivate("HEALER : dispel le ralentissement des fixated")
+            M:ShowPrivateText("HEALER : dispel le ralentissement des fixated")
         elseif role == "TANK" then
             ShowAlert("ECTOCLOQUES — GÉREZ LES ADDS ! (" .. kills .. ")", "interrupt")
         else

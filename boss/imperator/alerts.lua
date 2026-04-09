@@ -128,8 +128,13 @@ local function OnUnitAura(unit)
     if umbral and not trackedAuras.umbral then
         trackedAuras.umbral = true
         ShowPrivate("UMBRAL COLLAPSE — ALLEZ AU MARQUEUR !", 1249265)
+        local dur = (umbral.expirationTime and umbral.expirationTime > 0)
+                    and (umbral.expirationTime - GetTime())
+                    or (umbral.duration or 8)
+        M:ProgressBarCountdown(1, dur, "UMBRAL COLLAPSE", "soak", 1249265)
     elseif not umbral then
         trackedAuras.umbral = nil
+        M:ProgressBarHide(1)
     end
 end
 
@@ -139,6 +144,7 @@ local function ResetState()
     trackedAuras  = {}
     activeTimers  = {}
     voidMarkCount = 0
+    M:ProgressBarHide(1)
     UnregisterCLEU()
 end
 

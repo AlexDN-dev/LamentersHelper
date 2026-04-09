@@ -139,8 +139,17 @@ local function MakeDropdown(parent, choices, onSelect)
 end
 
 local function BuildAffichageTab(parent)
-    local f = CreateFrame("Frame", nil, parent)
-    f:SetAllPoints()
+    local container = CreateFrame("Frame", nil, parent)
+    container:SetAllPoints()
+
+    local scrollFrame = CreateFrame("ScrollFrame", nil, container, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT",     container, "TOPLEFT",      0,   0)
+    scrollFrame:SetPoint("BOTTOMRIGHT", container, "BOTTOMRIGHT", -26,  0)
+
+    local f = CreateFrame("Frame", nil, scrollFrame)
+    f:SetWidth(scrollFrame:GetWidth() or 580)
+    f:SetHeight(640)
+    scrollFrame:SetScrollChild(f)
 
     -- ── Section : Positions des textes ────────────────────────────────────────
     SectionHeader(f, "Positions des textes", -8)
@@ -157,16 +166,13 @@ local function BuildAffichageTab(parent)
     ddBtn:SetPoint("TOPLEFT", f, "TOPLEFT", 0, -60)
 
     -- ── Lignes par canal ──────────────────────────────────────────────────────
-    local rowY     = -100
-    local rowGap   = 38
+    local rowY       = -100
+    local rowGap     = 38
     local toggleBtns = {}
-
-    local isOwner = (UnitName("player") == RL_NOTE_PLAYER)
+    local isOwner    = (UnitName("player") == RL_NOTE_PLAYER)
 
     for _, def in ipairs(CHANNEL_DEFS) do
-        if def.key == "rlNote" and not isOwner then
-            -- Note RL : masquée pour les non-propriétaires
-        else
+        if not (def.key == "rlNote" and not isOwner) then
             local r2, g2, b2 = unpack(def.color)
 
             local colorBar = f:CreateTexture(nil, "ARTWORK")
@@ -219,50 +225,80 @@ local function BuildAffichageTab(parent)
         end
     end
 
-    -- ── Section : Visuel ──────────────────────────────────────────────────────
-    local baseY = rowY - 16
-    SectionHeader(f, "Visuel", baseY)
+    -- ── Section : Barres de progression ──────────────────────────────────────
+    local barsY = rowY - 20
+    SectionHeader(f, "Barres de progression", barsY)
 
-    local iconsCheck = MakeCheck(f, "Afficher les ic\195\180nes de sort  (discret, sur le texte d'alerte)",
-        "showSpellIcons", "TOPLEFT", f, "TOPLEFT", 0, baseY - 34)
+    local barDragActive = false
 
-    SectionHeader(f, "Barres de progression", baseY - 76)
+    local barMoveBtn = M.MakeBtn(f, "D\195\169placer les barres", 160, 26)
+    barMoveBtn:SetPoint("TOPLEFT", f, "TOPLEFT", 0, barsY - 36)
 
-    local barXSlider = MakeSlider(f, "barGroupX", "Position X", -500, 500, "barGroupPosX",
-        "TOPLEFT", f, "TOPLEFT", 0, baseY - 116,
-        function() if M.RepositionBars then M:RepositionBars() end end)
-
-    local barYSlider = MakeSlider(f, "barGroupY", "Position Y", -500, 500, "barGroupPosY",
-        "TOPLEFT", f, "TOPLEFT", 230, baseY - 116,
-        function() if M.RepositionBars then M:RepositionBars() end end)
+    local barMoveReset = M.MakeBtn(f, "Reset", 60, 26)
+    barMoveReset:SetPoint("LEFT", barMoveBtn, "RIGHT", 8, 0)
+    barMoveReset._txt:SetTextColor(1, 0.40, 0.40)
 
     local barTestBtn = M.MakeBtn(f, "Tester les barres", 160, 26)
-    barTestBtn:SetPoint("TOPLEFT", f, "TOPLEFT", 0, baseY - 150)
+    barTestBtn:SetPoint("TOPLEFT", f, "TOPLEFT", 0, barsY - 70)
+
+    local function SetBarDragState(active)
+        barDragActive = active
+        if active then
+            barMoveBtn._bg:SetColorTexture(R, G, B, 0.65)
+            barMoveBtn._txt:SetTextColor(1, 1, 1)
+            if M.EnableBarDrag then M:EnableBarDrag() end
+        else
+            barMoveBtn._bg:SetColorTexture(0.11, 0.11, 0.14, 1)
+            barMoveBtn._txt:SetTextColor(0.65, 0.65, 0.68)
+            if M.DisableBarDrag then M:DisableBarDrag() end
+        end
+    end
+
+    barMoveBtn:SetScript("OnClick", function()
+        SetBarDragState(not barDragActive)
+    end)
+
+    barMoveReset:SetScript("OnClick", function()
+        M.config.barGroupPosX = 0
+        M.config.barGroupPosY = 0
+        if M.SaveConfig then M:SaveConfig() end
+        if M.RepositionBars then M:RepositionBars() end
+    end)
+
     barTestBtn:SetScript("OnClick", function()
+        if barDragActive then SetBarDragState(false) end
         if M.ProgressBarCountdown then
             M:ProgressBarCountdown(1, 10, "Shadowclaw Slam", "soak")
-            M:ProgressBarCountdown(2, 14, "Ectocloques", "interrupt")
-            M:ProgressBarCountdown(3, 7,  "Grondement Primordial", "phase")
+            M:ProgressBarCountdown(2, 14, "Fearsome Cry \226\128\148 INTERRUPT", "interrupt")
+            M:ProgressBarCountdown(3,  7, "Phase Transition", "phase")
             M:ProgressBarCountdown(4, 20, "Void Breath", "global")
         end
     end)
 
-    local barResetBtn = M.MakeBtn(f, "Reset", 60, 26)
-    barResetBtn:SetPoint("LEFT", barTestBtn, "RIGHT", 6, 0)
-    barResetBtn._txt:SetTextColor(1, 0.40, 0.40)
-    barResetBtn:SetScript("OnClick", function()
-        M.config.barGroupPosX = 0
-        M.config.barGroupPosY = 0
-        if M.SaveConfig then M:SaveConfig() end
-        barXSlider:SetValue(0)
-        barYSlider:SetValue(0)
-        if M.RepositionBars then M:RepositionBars() end
-    end)
+    MakeSlider(f, "BarWidth", "Largeur", 100, 500, "barWidth",
+        "TOPLEFT", f, "TOPLEFT", 10, barsY - 122,
+        function() if M.ResizeBars then M:ResizeBars() end end)
 
-    SectionHeader(f, "D\195\169veloppement", baseY - 196)
+    MakeSlider(f, "BarHeight", "Hauteur", 16, 50, "barHeight",
+        "TOPLEFT", f, "TOPLEFT", 10, barsY - 168,
+        function() if M.ResizeBars then M:ResizeBars() end end)
+
+    -- ── Section : Visuel ──────────────────────────────────────────────────────
+    local visualY = barsY - 212
+    SectionHeader(f, "Visuel", visualY)
+
+    local iconsCheck = MakeCheck(f, "Afficher les ic\195\180nes de sort  (discret, sur le texte d'alerte)",
+        "showSpellIcons", "TOPLEFT", f, "TOPLEFT", 0, visualY - 34)
+
+    local flashCheck = MakeCheck(f, "Flash color\195\169  (rectangle qui s'illumine sur les alertes)",
+        "flashEnabled", "TOPLEFT", f, "TOPLEFT", 0, visualY - 68)
+
+    -- ── Section : D\195\169veloppement ─────────────────────────────────────────────
+    local devY = visualY - 114
+    SectionHeader(f, "D\195\169veloppement", devY)
 
     local debugCheck = MakeCheck(f, "Afficher l'encounterID dans le chat (debug)",
-        "debugEncounter", "TOPLEFT", f, "TOPLEFT", 0, baseY - 230)
+        "debugEncounter", "TOPLEFT", f, "TOPLEFT", 0, devY - 34)
 
     -- ── OnShow ────────────────────────────────────────────────────────────────
     f:SetScript("OnShow", function()
@@ -277,19 +313,19 @@ local function BuildAffichageTab(parent)
             end
         end
 
-        -- Sync lignes texte
         for _, tbtn in ipairs(toggleBtns) do
             local ch = M.channels and M.channels[tbtn.channelKey]
             if ch then tbtn:SetText(ch.anchorVisible and "Cacher" or "Afficher") end
         end
 
+        -- Désactive le drag si on revient sur l'onglet
+        if barDragActive then SetBarDragState(false) end
+
         iconsCheck:SetChecked(M.config.showSpellIcons)
-        barXSlider:SetValue(M.config.barGroupPosX or 0)
-        barYSlider:SetValue(M.config.barGroupPosY or 0)
         debugCheck:SetChecked(M.config.debugEncounter)
     end)
 
-    return f
+    return container
 end
 
 -- ─── Onglet : Sons ────────────────────────────────────────────────────────────
@@ -976,13 +1012,7 @@ function M:CreateBelorenPanel()
         "  \226\128\162 Orbes : ramasser UNIQUEMENT sa propre couleur (ne pas toucher le boss)\n" ..
         "  \226\128\162 Adds Éruption : interrupt par joueur de couleur correspondante SEULEMENT\n" ..
         "  \226\128\162 Édit du Gardien : chaque tank soak son cône SA couleur \226\128\148 |cffff4444BOSS +20% DMG|r pendant l'édit\n" ..
-        "  \226\128\162 Phase 2 (30s) : rejoindre zone de sa couleur \226\128\148 DPS l'\197\147uf max !\n" ..
-        "\n" ..
-        "|cff888888Nerfs (weekly reset) :|r\n" ..
-        "  \226\128\162 Phase 1 \226\128\148 PV \226\128\147 10% Mythique\n" ..
-        "  \226\128\162 \195\137dit du Gardien \226\128\148 boss +20% dmg pendant le cast\n" ..
-        "  \226\128\162 Piquants Infus\195\169s \226\128\148 moins de joueurs cibl\195\169s sur Mythique\n" ..
-        "  \226\128\162 Renaissance / Plong\195\169es \226\128\148 d\195\169g\195\162ts fortement r\195\169duits sur Mythique"
+        "  \226\128\162 Phase 2 (30s) : rejoindre zone de sa couleur \226\128\148 DPS l'\197\147uf max !"
     )
 
     -- ── Aura du joueur ────────────────────────────────────────────────────────
@@ -1064,6 +1094,82 @@ function M:CreateBelorenPanel()
             end
         end
     end)
+
+    return frame
+end
+
+-- ─── Panneau Glas de minuit (L'ura) ──────────────────────────────────────────
+
+function M:CreateGlasMinuitPanel()
+    local frame = CreateFrame("Frame", nil, M.content)
+    frame:SetAllPoints(M.content)
+
+    SectionHeader(frame, "L'ura — Midnight Falls", -28)
+
+    -- Info
+    local infoBox = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    infoBox:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -72)
+    infoBox:SetWidth(580)
+    infoBox:SetJustifyH("LEFT")
+    infoBox:SetSpacing(3)
+    infoBox:SetTextColor(0.68, 0.68, 0.72)
+    infoBox:SetText(
+        "|cffcc2222Jeu de m\195\169moire \226\128\148 Runes|r\n" ..
+        "  \226\128\162 La personne d\195\169sign\195\169e ouvre le panneau caller et clique les runes dans l'ordre\n" ..
+        "  \226\128\162 Appuie sur |cffaaffaaEnvoyer|r \226\134\146 tout le raid voit le diagramme instantan\195\169ment\n" ..
+        "  \226\128\162 Le diagramme se cache automatiquement \195\160 la fin de chaque phase"
+    )
+
+    -- Mode
+    SectionHeader(frame, "Mode", -170)
+
+    local heroicBtn = M.MakeBtn(frame, "H\195\169ro\195\175que (5 symboles)", 180, 26)
+    heroicBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -208)
+
+    local normalBtn = M.MakeBtn(frame, "Normal (3 symboles)", 160, 26)
+    normalBtn:SetPoint("LEFT", heroicBtn, "RIGHT", 8, 0)
+
+    local function RefreshModeButtons()
+        local heroic = (M.config and M.config.luraHeroicMode) ~= false
+        if heroic then
+            heroicBtn._bg:SetColorTexture(0.78, 0.07, 0.07, 0.65)
+            normalBtn._bg:SetColorTexture(0.11, 0.11, 0.14, 1)
+        else
+            normalBtn._bg:SetColorTexture(0.78, 0.07, 0.07, 0.65)
+            heroicBtn._bg:SetColorTexture(0.11, 0.11, 0.14, 1)
+        end
+    end
+
+    heroicBtn:SetScript("OnClick", function()
+        if M.SetLuraHeroicMode then M:SetLuraHeroicMode(true) end
+        RefreshModeButtons()
+    end)
+    normalBtn:SetScript("OnClick", function()
+        if M.SetLuraHeroicMode then M:SetLuraHeroicMode(false) end
+        RefreshModeButtons()
+    end)
+
+    -- Outils
+    SectionHeader(frame, "Outils", -252)
+
+    local callerBtn = M.MakeBtn(frame, "Panneau Caller (RL/assist)", 200, 26)
+    callerBtn:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -290)
+    callerBtn:SetScript("OnClick", function()
+        if M.ToggleLuraCallerPanel then M:ToggleLuraCallerPanel() end
+    end)
+
+    local diagBtn = M.MakeBtn(frame, "Afficher / Cacher le diagramme", 210, 26)
+    diagBtn:SetPoint("LEFT", callerBtn, "RIGHT", 8, 0)
+    diagBtn:SetScript("OnClick", function()
+        if M.ToggleLuraDiagram then M:ToggleLuraDiagram() end
+    end)
+
+    local note = frame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    note:SetPoint("TOPLEFT", callerBtn, "BOTTOMLEFT", 0, -10)
+    note:SetTextColor(0.50, 0.50, 0.55)
+    note:SetText("Le panneau Caller permet de cliquer les runes et d'envoyer la s\195\169quence au raid.")
+
+    frame:SetScript("OnShow", RefreshModeButtons)
 
     return frame
 end

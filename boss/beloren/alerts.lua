@@ -6,7 +6,7 @@ local addonName, M = ...
 -- qui interrompt les adds, qui soak les cônes tanks.
 -- IMPORTANT : eventInfo.spellID tainté en Midnight → identification Timeline par durée.
 -- CLEU utilisé pour : auras joueurs, casts boss/adds, marqueurs de soak.
-local ENCOUNTER_ID = 3183   -- PLACEHOLDER — à confirmer via debugEncounter
+local ENCOUNTER_ID = 3182   -- à confirmer via debugEncounter si incorrect
 
 -- ─── Spell IDs ────────────────────────────────────────────────────────────────
 
@@ -277,7 +277,7 @@ local function OnRebirth()
         "RENAISSANCE — TUEZ L'ŒUF  |cffffff0015s|r  !",
         "phase", REBIRTH_ID
     )
-    M:ProgressBarCountdown(2, 15, "RENAISSANCE — TUEZ L'ŒUF", "soak")
+    M:ProgressBarCountdown(2, 15, "RENAISSANCE", "soak", REBIRTH_ID)
 
     -- Rappel à T+10s (5s restantes)
     C_Timer.After(10, function()
@@ -333,8 +333,8 @@ local function OnIncubationFlames()
         "PHASE 2 — REJOIGNEZ VOS ZONES  |cffa0ffa0DPS L'ŒUF !|r",
         "phase", INCUBATION_FLAMES_ID
     )
-    ShowPrivate("VA DANS LA ZONE " .. AuraLabel(myA) .. " !", INCUBATION_FLAMES_ID)
-    M:ProgressBarCountdown(1, 30, "PHASE 2 — DPS L'ŒUF !", "phase")
+    M:ShowPrivateText("VA DANS LA ZONE " .. AuraLabel(myA) .. " !", INCUBATION_FLAMES_ID)
+    M:ProgressBarCountdown(1, 30, "INCUBATION DES FLAMMES", "phase", INCUBATION_FLAMES_ID)
 
     -- Rappel d'aura 3s après la transition (beaucoup de mouvement)
     C_Timer.After(3, function()
@@ -406,7 +406,7 @@ end
 -- ─── Timeline : Échos Rayonnants ─────────────────────────────────────────────
 -- Les orbes sont un event récurrent → durée à confirmer via debugEncounter.
 local function BuildTimerCallback(d)
-    -- Échos Rayonnants — durée probable ~45s (à ajuster)
+    -- Échos Rayonnants — durée à confirmer en jeu via debugEncounter
     if d == 45 or d == 46 or d == 47 then
         return function() OnRadiantEchoes() end
     end
