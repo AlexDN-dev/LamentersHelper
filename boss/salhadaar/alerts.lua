@@ -32,7 +32,7 @@ local CLASS_INTERRUPT = {
     MAGE        = 2139,    -- Counterspell   40 yd
     MONK        = 116705,  -- Spear Hand      5 yd
     DRUID       = 106839,  -- Skull Bash      5 yd
-    DEMONHUNTER = 183752,  -- Disrupt         5 yd
+    DEMONHUNTER = 183752,  -- Disrupt         5 yd (Vengeance/Havoc) | ~15 yd (Dévorer)
     DEATHKNIGHT = 47528,   -- Mind Freeze    15 yd
     EVOKER      = 351338,  -- Quell          25 yd
     -- WARLOCK / PRIEST : pas d'interrupt baseline
