@@ -337,6 +337,14 @@ frame:SetScript("OnEvent", function(_, event, ...)
         OnUnitAura(...)
 
     elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
+        -- ── Debug alive : confirme que CLEU est reçu (sans guard inFight) ──
+        if M.config and M.config.debugEncounter then
+            if not seenCLEU["_alive"] then
+                seenCLEU["_alive"] = true
+                print(string.format("|cffff8000LH CLEU|r ACTIF — inFight=%s", tostring(inFight)))
+            end
+        end
+
         if not inFight then return end
         local _, subevent, _, srcGUID, srcName, srcFlags, _, _, destName, _, _, spellId, spellName = CombatLogGetCurrentEventInfo()
 
