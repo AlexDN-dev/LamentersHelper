@@ -1001,8 +1001,14 @@ function M:CreateBelorenPanel()
     sf:SetPoint("BOTTOMRIGHT", outer, "BOTTOMRIGHT", -26,  0)
 
     local frame = CreateFrame("Frame", nil, sf)
-    frame:SetSize(sf:GetWidth() or 590, 700)
+    frame:SetSize(590, 700)
     sf:SetScrollChild(frame)
+    sf:EnableMouseWheel(true)
+    sf:SetScript("OnMouseWheel", function(self, delta)
+        local cur = self:GetVerticalScroll()
+        local maxScroll = math.max(0, frame:GetHeight() - self:GetHeight())
+        self:SetVerticalScroll(math.max(0, math.min(maxScroll, cur - delta * 30)))
+    end)
 
     SectionHeader(frame, "Belo'ren, Enfant d'Al'ar — H\195\169ro\195\175que/Mythique", -28)
 

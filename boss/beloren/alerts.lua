@@ -229,8 +229,6 @@ local function ShowDispel(msg, spellID)
     if M.PlayAlertSound then M:PlayAlertSound("dispel") end
 end
 
-end
-
 -- ─── Rappel d'aura (toutes les 60s) ──────────────────────────────────────────
 -- Rappelle régulièrement au joueur sa couleur pour éviter les erreurs de mécanique.
 local function ShowAuraReminder()

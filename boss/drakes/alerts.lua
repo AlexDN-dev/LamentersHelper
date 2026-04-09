@@ -43,8 +43,6 @@ local function ShowPrivate(msg, spellID)
     if M.PlayAlertSound then M:PlayAlertSound("private") end
 end
 
-end
-
 -- ─── Handlers CLEU ───────────────────────────────────────────────────────────
 
 -- Dread Breath : Vaelgor caste → tout le monde doit se retourner / absorber le fear

@@ -54,8 +54,6 @@ local function ShowPrivate(msg, spellID)
     if M.PlayAlertSound then M:PlayAlertSound("private") end
 end
 
-end
-
 -- ─── Handlers CLEU ───────────────────────────────────────────────────────────
 
 -- Searing Radiance : Senn caste → SPREAD (2s pour s'écarter)

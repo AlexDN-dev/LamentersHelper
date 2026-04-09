@@ -338,7 +338,6 @@ frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED")
-frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_REMOVED")
 frame:RegisterUnitEvent("UNIT_AURA", "player")
 
 frame:SetScript("OnEvent", function(_, event, ...)
@@ -370,11 +369,6 @@ frame:SetScript("OnEvent", function(_, event, ...)
     elseif event == "ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED" then
         if not inFight then return end
         OnTimelineStateChanged(...)
-
-    elseif event == "ENCOUNTER_TIMELINE_EVENT_REMOVED" then
-        if not inFight then return end
-        local eventID = ...
-        activeTimers[eventID] = nil
 
     elseif event == "UNIT_AURA" then
         if not inFight then return end
