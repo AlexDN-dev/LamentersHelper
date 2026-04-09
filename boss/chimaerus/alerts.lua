@@ -228,12 +228,10 @@ local function OnUnitAura(unit)
         trackedAuras.dissonance = nil
     end
 
-    -- Cache la barre Rift Madness quand le debuff disparaît
-    if trackedAuras.riftBar then
-        if not C_UnitAuras.GetPlayerAuraBySpellID(RIFT_MADNESS_ID) then
-            M:ProgressBarHide(2)
-            trackedAuras.riftBar = nil
-        end
+    -- Cache la barre Rift Madness quand le debuff disparaît (guard : seulement si elle était active)
+    if trackedAuras.riftBar and not C_UnitAuras.GetPlayerAuraBySpellID(RIFT_MADNESS_ID) then
+        M:ProgressBarHide(2)
+        trackedAuras.riftBar = nil
     end
 end
 

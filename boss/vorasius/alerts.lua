@@ -257,7 +257,8 @@ local function OnUnitAura(unit)
                     and (blister.expirationTime - GetTime())
                     or (blister.duration or 30)
         M:ProgressBarCountdown(1, dur, "BLISTERBURST — +100% DMG", "soak")
-    elseif not blister then
+    elseif not blister and blistered then
+        -- Guard : on ne cache que si la barre était active, pas à chaque UNIT_AURA
         blistered = false
         M:ProgressBarHide(1)
     end
@@ -278,7 +279,8 @@ local function OnUnitAura(unit)
                              or (aura.duration or 20)
             M:ProgressBarCountdown(2, timeLeft, "SMASHED \215" .. stacks, "interrupt")
         end
-    else
+    elseif smashedStacks > 0 then
+        -- Guard : on ne cache que si des stacks étaient trackés
         smashedStacks = 0
         M:ProgressBarHide(2)
     end
