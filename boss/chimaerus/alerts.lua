@@ -200,7 +200,9 @@ local function BuildTimerCallback(d)
 end
 
 local function OnTimelineAdded(eventInfo)
-    if not eventInfo or eventInfo.source ~= 0 then return end
+    if not eventInfo then return end
+    -- source==0 = boss (Midnight). On accepte aussi nil pour compatibilité.
+    if eventInfo.source and eventInfo.source ~= 0 then return end
     local d  = math.floor(eventInfo.duration + 0.5)
     local cb = BuildTimerCallback(d)
     if cb then
@@ -241,6 +243,8 @@ local function OnUnitAura(unit)
 end
 
 -- ─── Reset ────────────────────────────────────────────────────────────────────
+local seenCLEU = {}   -- debug : IDs uniques vus en combat
+
 local function ResetState()
     inFight          = false
     activeTimers     = {}
@@ -249,6 +253,7 @@ local function ResetState()
     soakCount        = 0
     breathCount      = 0
     fearCryCooldown  = false
+    wipe(seenCLEU)
     M:ProgressBarHide(1)
     M:ProgressBarHide(2)
     M:ProgressBarHide(3)
@@ -306,8 +311,6 @@ frame:SetScript("OnEvent", function(_, event, ...)
         if encounterID == ENCOUNTER_ID then
             ResetState()
             inFight = true
-            -- Test visuel immédiat : confirme que ShowAlert fonctionne
-            ShowAlert("LH CHIMAERUS — EN COMBAT !", "phase")
         end
 
     elseif event == "ENCOUNTER_END" then
@@ -335,7 +338,22 @@ frame:SetScript("OnEvent", function(_, event, ...)
 
     elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
         if not inFight then return end
-        local _, subevent, _, _, srcName, _, _, _, destName, _, _, spellId = CombatLogGetCurrentEventInfo()
+        local _, subevent, _, srcGUID, srcName, srcFlags, _, _, destName, _, _, spellId, spellName = CombatLogGetCurrentEventInfo()
+
+        -- ── Debug : capture les IDs NPC uniques pour identifier les spells réels ──
+        if M.config and M.config.debugEncounter then
+            if subevent == "SPELL_CAST_START" or subevent == "SPELL_AURA_APPLIED" then
+                -- 0x00000800 = COMBATLOG_OBJECT_TYPE_NPC
+                if srcFlags and bit.band(srcFlags, 0x00000800) ~= 0 then
+                    local key = subevent .. ":" .. tostring(spellId)
+                    if not seenCLEU[key] then
+                        seenCLEU[key] = true
+                        print(string.format("|cffff8000LH CLEU|r %s id=%s \"%s\"",
+                            subevent, tostring(spellId), tostring(spellName)))
+                    end
+                end
+            end
+        end
 
         if subevent == "SPELL_AURA_APPLIED" then
             if    spellId == CONSUMING_MIASMA_ID then OnMiasmaApplied(destName)
