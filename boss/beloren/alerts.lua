@@ -64,13 +64,19 @@ local frame = CreateFrame("Frame")
 
 -- ─── Icône d'aura persistante ────────────────────────────────────────────────
 -- Affichée en permanence pendant tout le fight pour rappeler VIDE ou LUMIÈRE.
+-- Icônes officielles Midnight 12.0 (file IDs Wowhead confirmés) :
+local ICON_LIGHT = 7636520   -- inv_12_dualityphoenix_holy_feather  (Light Feather)
+local ICON_VOID  = 7636525   -- inv_12_dualityphoenix_void_feather   (Void Feather)
+
+local MASK_TEX = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
+
 local auraIconFrame = nil
 
 local function BuildAuraIconFrame()
     if auraIconFrame then return end
     local x    = M.config and M.config.belorenAuraIconX    or 0
     local y    = M.config and M.config.belorenAuraIconY    or -200
-    local size = M.config and M.config.belorenAuraIconSize or 80
+    local size = M.config and M.config.belorenAuraIconSize or 100
 
     local f = CreateFrame("Frame", "LHBelorenAuraIcon", UIParent)
     f:SetSize(size, size)
@@ -81,33 +87,40 @@ local function BuildAuraIconFrame()
     f:EnableMouse(true)
     f:RegisterForDrag("LeftButton")
 
-    -- Fond circulaire semi-transparent
-    local bg = f:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints()
-    bg:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask")
-    bg:SetVertexColor(0, 0, 0, 0.65)
-    f._bg = bg
+    -- ── Anneau coloré (cercle légèrement plus grand que l'icône) ──────────────
+    -- Visible comme une bordure de 6px autour de l'icône.
+    local ring = f:CreateTexture(nil, "BACKGROUND")
+    ring:SetPoint("TOPLEFT", -6, 6)
+    ring:SetPoint("BOTTOMRIGHT", 6, -6)
+    local ringMask = f:CreateMaskTexture()
+    ringMask:SetPoint("TOPLEFT", -6, 6)
+    ringMask:SetPoint("BOTTOMRIGHT", 6, -6)
+    ringMask:SetTexture(MASK_TEX, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    ring:AddMaskTexture(ringMask)
+    f._ring = ring
 
-    -- Icône du sort (teintée selon l'aura)
+    -- ── Fond sombre circulaire (cache le centre de l'anneau) ──────────────────
+    local bg = f:CreateTexture(nil, "BORDER")
+    bg:SetAllPoints()
+    bg:SetColorTexture(0.03, 0.01, 0.06, 0.92)
+    local bgMask = f:CreateMaskTexture()
+    bgMask:SetAllPoints()
+    bgMask:SetTexture(MASK_TEX, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+    bg:AddMaskTexture(bgMask)
+
+    -- ── Icône principale (masquée en cercle, pleine résolution, sans tinting) ──
     local icon = f:CreateTexture(nil, "ARTWORK")
-    icon:SetPoint("TOPLEFT", 6, -6)
-    icon:SetPoint("BOTTOMRIGHT", -6, 6)
+    icon:SetAllPoints()
+    icon:AddMaskTexture(bgMask)   -- même masque circulaire que le fond
     f._icon = icon
 
-    -- Bordure colorée
-    local border = f:CreateTexture(nil, "OVERLAY")
-    border:SetPoint("TOPLEFT", -3, 3)
-    border:SetPoint("BOTTOMRIGHT", 3, -3)
-    border:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask")
-    f._border = border
-
-    -- Texte d'aura sous l'icône
+    -- ── Texte d'aura sous l'icône ─────────────────────────────────────────────
     local lbl = f:CreateFontString(nil, "OVERLAY")
-    lbl:SetFont("Fonts\\FRIZQT__.TTF", 13, "OUTLINE")
-    lbl:SetPoint("TOP", f, "BOTTOM", 0, -4)
+    lbl:SetFont("Fonts\\FRIZQT__.TTF", 16, "OUTLINE")
+    lbl:SetPoint("TOP", f, "BOTTOM", 0, -6)
     f._label = lbl
 
-    -- Drag pour repositionner (hors combat uniquement)
+    -- ── Drag hors combat ──────────────────────────────────────────────────────
     f:SetScript("OnDragStart", function(self)
         if InCombatLockdown() then return end
         self:StartMoving()
@@ -131,41 +144,32 @@ local function UpdateAuraIconFrame()
     if not auraIconFrame then BuildAuraIconFrame() end
     local aura = GetMyAura()
 
-    -- Masquer si pas d'aura connue ou hors combat
     if not aura or not inFight then
         auraIconFrame:Hide()
         return
     end
 
-    -- Récupère l'icône du sort via le jeu (texture réelle de la mécanique)
-    local tex = C_Spell.GetSpellTexture and C_Spell.GetSpellTexture(VOID_CONVERGENCE_ID)
-               or GetSpellTexture and GetSpellTexture(VOID_CONVERGENCE_ID)
-    if tex then
-        auraIconFrame._icon:SetTexture(tex)
-    else
-        -- Fallback : icône générique phoenix / oiseau de feu (Al'ar)
-        auraIconFrame._icon:SetTexture("Interface\\Icons\\inv_firebird_01")
-    end
-
     if aura == "VOID" then
-        auraIconFrame._icon:SetVertexColor(0.75, 0.35, 1.0)           -- teinte violette
-        auraIconFrame._border:SetVertexColor(0.55, 0.10, 0.90, 0.90)
+        -- Icône Void Feather officielle — couleurs natives, aucun tinting
+        auraIconFrame._icon:SetTexture(ICON_VOID)
+        auraIconFrame._ring:SetColorTexture(0.50, 0.08, 0.88, 1.0)  -- anneau violet
         auraIconFrame._label:SetText("|cffb05be8VIDE|r")
     else
-        auraIconFrame._icon:SetVertexColor(1.0, 0.88, 0.25)           -- teinte dorée
-        auraIconFrame._border:SetVertexColor(1.0, 0.80, 0.05, 0.90)
+        -- Icône Light Feather officielle — couleurs natives, aucun tinting
+        auraIconFrame._icon:SetTexture(ICON_LIGHT)
+        auraIconFrame._ring:SetColorTexture(1.0, 0.78, 0.05, 1.0)   -- anneau doré
         auraIconFrame._label:SetText("|cffffcc00LUMI\195\136RE|r")
     end
 
     auraIconFrame:Show()
 end
 
--- API publique — appelée depuis options.lua pour repositionner/redimensionner sans rechargement
+-- API publique — appelée depuis options.lua pour repositionner/redimensionner
 function M:RepositionBelorenAuraIcon()
     if not auraIconFrame then return end
     local x    = M.config and M.config.belorenAuraIconX    or 0
     local y    = M.config and M.config.belorenAuraIconY    or -200
-    local size = M.config and M.config.belorenAuraIconSize or 80
+    local size = M.config and M.config.belorenAuraIconSize or 100
     auraIconFrame:ClearAllPoints()
     auraIconFrame:SetPoint("CENTER", UIParent, "CENTER", x, y)
     auraIconFrame:SetSize(size, size)

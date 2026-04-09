@@ -79,7 +79,7 @@ local defaults = {
     -- Belo'ren — Icône d'aura persistante (affichée tout le fight)
     belorenAuraIconX    = 0,
     belorenAuraIconY    = -200,
-    belorenAuraIconSize = 80,
+    belorenAuraIconSize = 100,
 
     -- Positions par boss — { bossKey = { posXKey = val, posYKey = val, ... } }
     -- Si absent pour un boss, fallback sur les positions globales (posX/posY etc.)
