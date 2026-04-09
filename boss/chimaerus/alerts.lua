@@ -340,17 +340,14 @@ frame:SetScript("OnEvent", function(_, event, ...)
         if not inFight then return end
         local _, subevent, _, srcGUID, srcName, srcFlags, _, _, destName, _, _, spellId, spellName = CombatLogGetCurrentEventInfo()
 
-        -- ── Debug : capture les IDs NPC uniques pour identifier les spells réels ──
+        -- ── Debug : capture tous les IDs uniques (CAST_START + AURA_APPLIED) ──
         if M.config and M.config.debugEncounter then
             if subevent == "SPELL_CAST_START" or subevent == "SPELL_AURA_APPLIED" then
-                -- 0x00000800 = COMBATLOG_OBJECT_TYPE_NPC
-                if srcFlags and bit.band(srcFlags, 0x00000800) ~= 0 then
-                    local key = subevent .. ":" .. tostring(spellId)
-                    if not seenCLEU[key] then
-                        seenCLEU[key] = true
-                        print(string.format("|cffff8000LH CLEU|r %s id=%s \"%s\"",
-                            subevent, tostring(spellId), tostring(spellName)))
-                    end
+                local key = subevent .. ":" .. tostring(spellId)
+                if not seenCLEU[key] then
+                    seenCLEU[key] = true
+                    print(string.format("|cffff8000LH CLEU|r %s id=%s src=%s \"%s\"",
+                        subevent, tostring(spellId), tostring(srcName), tostring(spellName)))
                 end
             end
         end
