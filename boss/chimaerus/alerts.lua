@@ -306,6 +306,8 @@ frame:SetScript("OnEvent", function(_, event, ...)
         if encounterID == ENCOUNTER_ID then
             ResetState()
             inFight = true
+            -- Test visuel immédiat : confirme que ShowAlert fonctionne
+            ShowAlert("LH CHIMAERUS — EN COMBAT !", "phase")
         end
 
     elseif event == "ENCOUNTER_END" then
