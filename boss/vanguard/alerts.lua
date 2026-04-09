@@ -13,7 +13,8 @@ local SPELL_SACRED_TOLL  = 1246749  -- Péage Sacré (Venel) → RAID DAMAGE 2s
 local SPELL_SACRED_SHIELD= 1248674  -- Bouclier Sacré (Senn) → shield à burst + kick
 local SPELL_BLINDING     = 1258514  -- Lumière Aveuglante (Senn) → interrupt 7s
 local SPELL_DIVINE_TOLL  = 1248644  -- Divine Toll (Bellamy) → éviter boucliers
-local SPELL_DIVINE_STORM = 1246765  -- Tempête Divine → tornades
+local SPELL_DIVINE_STORM = 1246765  -- Tempête Divine → tornades (cast ~4s)
+local DIVINE_STORM_CAST  = 4.0      -- cast time à confirmer via debugEncounter
 local SPELL_ELEKK        = 1249130  -- Elekk Charge → esquiver
 -- Auras joueur (UNIT_AURA — GetPlayerAuraBySpellID)
 local SPELL_EXEC         = 1248985  -- Execution Sentence (privé joueur ciblé)
@@ -40,6 +41,7 @@ local shieldActive    = false
 local spreadCooldown  = false
 local tollCooldown    = false
 local blindCooldown   = false
+local stormCooldown   = false
 
 local frame = CreateFrame("Frame")
 
@@ -101,6 +103,15 @@ local function OnBlindingLight()
     M:ProgressBarCountdown(4, BLINDING_CAST, "BLINDING LIGHT — KICK", "interrupt", SPELL_BLINDING)
 end
 
+-- Divine Storm : Bellamy caste → tornades dans ~4s
+local function OnDivineStorm()
+    if stormCooldown then return end
+    stormCooldown = true
+    C_Timer.After(DIVINE_STORM_CAST + 1, function() stormCooldown = false end)
+    ShowAlert("TORNADES — ÉVITEZ LES ZONES !", "phase", SPELL_DIVINE_STORM)
+    M:ProgressBarCountdown(3, DIVINE_STORM_CAST, "TORNADES — BOUGEZ", "phase", SPELL_DIVINE_STORM)
+end
+
 -- Sacred Shield : Senn cast → barre bleue 17s avec marker deadline rouge
 -- Quand le shield est détruit (SPELL_CAST_SUCCESS sur Blinding Light ou
 -- perte de l'aura shield), alerte kick.
@@ -126,8 +137,6 @@ local function BuildTimerCallback(d)
     if d == 10 or d == 23 or d == 20 then
         -- Sacred Toll : aussi sur timeline comme fallback
         return nil  -- géré par CLEU, pas de doublon
-    elseif d == 18 or d == 15 then
-        return function() ShowAlert("DIVINE STORM — ÉVITEZ LES TORNADES !") end
     elseif d == 30 or d == 82 or d == 86 then
         return function() ShowAlert("EXECUTION SENTENCE — SOAK LES CERCLES !", "soak", SPELL_EXEC) end
     elseif d == 35 then
@@ -192,6 +201,7 @@ local function ResetState()
     spreadCooldown = false
     tollCooldown   = false
     blindCooldown  = false
+    stormCooldown  = false
     M:ProgressBarHide(1)
     M:ProgressBarHide(2)
     M:ProgressBarHide(3)
@@ -250,10 +260,11 @@ frame:SetScript("OnEvent", function(_, event, ...)
         local _, subevent, _, _, _, _, _, _, _, _, _, spellId = CombatLogGetCurrentEventInfo()
 
         if subevent == "SPELL_CAST_START" then
-            if     spellId == SPELL_SEARING_RAD  then OnSearingRadiance()
-            elseif spellId == SPELL_SACRED_TOLL  then OnSacredToll()
-            elseif spellId == SPELL_BLINDING     then OnBlindingLight()
+            if     spellId == SPELL_SEARING_RAD   then OnSearingRadiance()
+            elseif spellId == SPELL_SACRED_TOLL   then OnSacredToll()
+            elseif spellId == SPELL_BLINDING      then OnBlindingLight()
             elseif spellId == SPELL_SACRED_SHIELD then OnSacredShield()
+            elseif spellId == SPELL_DIVINE_STORM  then OnDivineStorm()
             end
 
         elseif subevent == "SPELL_CAST_SUCCESS" then
@@ -279,6 +290,8 @@ SlashCmdList["LHVANGUARDTEST"] = function(arg)
         OnSacredToll()
     elseif arg == "blind" then
         OnBlindingLight()
+    elseif arg == "storm" then
+        OnDivineStorm()
     elseif arg == "shield" then
         OnSacredShield()
     elseif arg == "broken" then
@@ -289,6 +302,6 @@ SlashCmdList["LHVANGUARDTEST"] = function(arg)
     elseif arg == "peace" then
         ShowAlert("AURA OF PEACE — SENN SUR LE BORD !", "phase", SPELL_AURA_PEACE)
     else
-        print("|cff00ff00LH Vanguard|r /lhvanguardtest spread|toll|blind|shield|broken|exec|peace")
+        print("|cff00ff00LH Vanguard|r /lhvanguardtest spread|toll|blind|storm|shield|broken|exec|peace")
     end
 end
