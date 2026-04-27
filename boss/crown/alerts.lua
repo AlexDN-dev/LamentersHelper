@@ -11,6 +11,7 @@ local trackedAuras = {}
 local activeTimers = {}
 local stage = 1       -- 1, 2, 3
 local dur4Count = 0   -- stage 1 pull : dur=4 → Tremor(1) → DarkHand(2) → RavenousAbyss(3)
+local cleuRegistered = false
 local frame = CreateFrame("Frame")
 
 local function ShowAlert(msg, soundType, spellID)
@@ -21,6 +22,25 @@ end
 local function ShowPrivate(msg, spellID)
     M:ShowPrivateText(msg, spellID)
     if M.PlayAlertSound then M:PlayAlertSound("private") end
+end
+
+-- ─── CLEU lazy-register ───────────────────────────────────────────────────────
+local function RegisterCLEU()
+    if not cleuRegistered then
+        C_Timer.After(0, function()
+            frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+            cleuRegistered = true
+        end)
+    end
+end
+
+local function UnregisterCLEU()
+    if cleuRegistered then
+        C_Timer.After(0, function()
+            frame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+            cleuRegistered = false
+        end)
+    end
 end
 
 -- ============================================================
@@ -206,6 +226,7 @@ local function ResetState()
     activeTimers = {}
     stage = 1
     dur4Count = 0
+    UnregisterCLEU()
 end
 
 frame:RegisterEvent("ENCOUNTER_START")
@@ -224,6 +245,7 @@ frame:SetScript("OnEvent", function(_, event, ...)
         if encounterID == ENCOUNTER_ID then
             ResetState()
             inFight = true
+            RegisterCLEU()
         end
     elseif event == "ENCOUNTER_END" then
         local encounterID, encounterName = ...
@@ -246,6 +268,16 @@ frame:SetScript("OnEvent", function(_, event, ...)
     elseif event == "UNIT_AURA" then
         if not inFight then return end
         OnUnitAura(...)
+    elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
+        if not inFight then return end
+        -- Debug : log tous les SPELL_CAST_START pour identifier les IDs boss/adds
+        if M.config and M.config.debugEncounter then
+            local _, subevent, _, _, srcName, _, _, _, _, _, _, spellId = CombatLogGetCurrentEventInfo()
+            if subevent == "SPELL_CAST_START" or subevent == "SPELL_AURA_APPLIED" then
+                print(string.format("|cff00ff00LH Debug|r CROWN %s spellId=%d src=%s stage=%d",
+                    subevent, spellId or 0, tostring(srcName), stage))
+            end
+        end
     end
 end)
 

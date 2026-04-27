@@ -101,82 +101,60 @@ local function UpdateFixateNote()
     M:ShowRLNote(table.concat(lines, "\n"))
 end
 
--- ─── Timeline callbacks ───────────────────────────────────────────────────────
--- Durées confirmées BigWigs Vorasius :
---   16, 136, 240  → Shadowclaw Slam (Heurtoir d'Ombregriffe)
---   57, 123       → Parasite Expulsion (Ectocloques / Blistercreeps)
---   6, 120        → Primordial Roar (Grondement Primordial)
-local function BuildTimerCallback(d)
+-- ─── Spell IDs CLEU (non taintés — source BigWigs Vorasius.lua) ──────────────
+local SHADOWCLAW_SLAM_ID    = 1241692
+local PARASITE_EXPULSION_ID = 1254199
+local PRIMORDIAL_ROAR_ID    = 1260052
 
-    -- Shadowclaw Slam — tank soak, murs du Vide
-    if d == 16 or d == 136 or d == 240 then
-        return function()
-            slamCount     = slamCount + 1
-            addKillCount  = 0  -- Nouvelle vague d'adds = reset compteur
-            local wallMsg = ""
-            if slamCount == 1 then
-                wallMsg = " | MUR #1 — KITEZ LES ADDS !"
-            elseif slamCount == 2 then
-                wallMsg = " | MUR #2 — TANK SWAP !"
-            end
-            ShowAlert("SHADOWCLAW SLAM — TANK ABSORBE !" .. wallMsg, "soak", SLAM_SPELL)
-        end
+-- ─── Handlers CLEU : Slam, Parasite Expulsion, Primordial Roar ───────────────
+local slamCooldown    = false
+local parasiteCooldown= false
+local roarCooldown    = false
+
+local function OnShadowclawSlam()
+    if slamCooldown then return end
+    slamCooldown = true
+    C_Timer.After(5, function() slamCooldown = false end)
+    slamCount    = slamCount + 1
+    addKillCount = 0
+    local wallMsg = ""
+    if slamCount == 1 then
+        wallMsg = " | MUR #1 — KITEZ LES ADDS !"
+    elseif slamCount == 2 then
+        wallMsg = " | MUR #2 — TANK SWAP !"
     end
-
-    -- Ectocloques / Blistercreeps — positionnement par rôle
-    if d == 57 or d == 123 then
-        return function()
-            addKillCount = 0  -- Sécurité reset
-            local role   = M:GetRole()
-            local mythic = M.config and M.config.vorasiusMythicMode
-            local kills  = mythic and "3 kills/mur" or "2 kills/mur"
-            if role == "MELEE" then
-                ShowAlert("ECTOCLOQUES — KITEZ VERS LA GAUCHE ! (" .. kills .. ")", "interrupt")
-                ShowPrivate("TOI → MUR GAUCHE  (tu es mêlée)")
-            elseif role == "RANGE" then
-                ShowAlert("ECTOCLOQUES — KITEZ VERS LA DROITE ! (" .. kills .. ")", "interrupt")
-                ShowPrivate("TOI → MUR DROIT  (tu es distance)")
-            elseif role == "HEALER" then
-                ShowAlert("ECTOCLOQUES — DISSIPEZ LES RALENTISSEMENTS !", "interrupt")
-                ShowPrivate("HEALER : dispel le ralentissement des fixated")
-            elseif role == "TANK" then
-                ShowAlert("ECTOCLOQUES — GÉREZ LES ADDS ! (" .. kills .. ")", "interrupt")
-            else
-                ShowAlert("ECTOCLOQUES — FOCUS LES ADDS ! (" .. kills .. ")", "interrupt")
-            end
-        end
-    end
-
-    -- Primordial Roar — attraction + knockback
-    if d == 6 or d == 120 then
-        return function()
-            ShowAlert("GRONDEMENT PRIMORDIAL — NE TOMBEZ PAS DE LA PLATEFORME !", "phase")
-        end
-    end
-
-    return nil
+    ShowAlert("SHADOWCLAW SLAM — TANK ABSORBE !" .. wallMsg, "soak", SHADOWCLAW_SLAM_ID)
 end
 
-local function OnTimelineAdded(eventInfo)
-    if not eventInfo or eventInfo.source ~= 0 then return end
-    local d  = math.floor(eventInfo.duration + 0.5)
-    local cb = BuildTimerCallback(d)
-    if cb then
-        activeTimers[eventInfo.id] = cb
-    elseif M.config and M.config.debugEncounter then
-        print(string.format("|cff00ff00LH Debug|r VORASIUS TIMELINE dur=%.1f id=%d", eventInfo.duration, eventInfo.id))
+local function OnParasiteExpulsion()
+    if parasiteCooldown then return end
+    parasiteCooldown = true
+    C_Timer.After(5, function() parasiteCooldown = false end)
+    addKillCount = 0
+    local role   = M:GetRole()
+    local mythic = M.config and M.config.vorasiusMythicMode
+    local kills  = mythic and "3 kills/mur" or "2 kills/mur"
+    if role == "MELEE" then
+        ShowAlert("ECTOCLOQUES — KITEZ VERS LA GAUCHE ! (" .. kills .. ")", "interrupt", PARASITE_EXPULSION_ID)
+        ShowPrivate("TOI → MUR GAUCHE  (tu es mêlée)")
+    elseif role == "RANGE" then
+        ShowAlert("ECTOCLOQUES — KITEZ VERS LA DROITE ! (" .. kills .. ")", "interrupt", PARASITE_EXPULSION_ID)
+        ShowPrivate("TOI → MUR DROIT  (tu es distance)")
+    elseif role == "HEALER" then
+        ShowAlert("ECTOCLOQUES — DISSIPEZ LES RALENTISSEMENTS !", "interrupt", PARASITE_EXPULSION_ID)
+        ShowPrivate("HEALER : dispel le ralentissement des fixated")
+    elseif role == "TANK" then
+        ShowAlert("ECTOCLOQUES — GÉREZ LES ADDS ! (" .. kills .. ")", "interrupt", PARASITE_EXPULSION_ID)
+    else
+        ShowAlert("ECTOCLOQUES — FOCUS LES ADDS ! (" .. kills .. ")", "interrupt", PARASITE_EXPULSION_ID)
     end
 end
 
-local function OnTimelineStateChanged(eventID)
-    local state = C_EncounterTimeline.GetEventState(eventID)
-    if state == 2 then  -- Finished = capacité qui se déclenche
-        local cb = activeTimers[eventID]
-        if cb then cb() end
-    end
-    if state == 2 or state == 3 then
-        activeTimers[eventID] = nil
-    end
+local function OnPrimordialRoar()
+    if roarCooldown then return end
+    roarCooldown = true
+    C_Timer.After(5, function() roarCooldown = false end)
+    ShowAlert("GRONDEMENT PRIMORDIAL — NE TOMBEZ PAS DE LA PLATEFORME !", "phase", PRIMORDIAL_ROAR_ID)
 end
 
 -- ─── CLEU ─────────────────────────────────────────────────────────────────────
@@ -192,12 +170,15 @@ local function OnCLEU()
     local _, event, _, _, sourceName, _, _, destGUID, destName, _, _, spellID =
         CombatLogGetCurrentEventInfo()
 
-    -- Souffle du Vide (Void Breath) — détection du début de canalisation
+    -- Casts boss / adds
     if event == "SPELL_CAST_START" or event == "SPELL_CHANNEL_START" then
         if spellID == VOID_BREATH_ID and not voidBreathActive then
             voidBreathActive = true
             ShowAlert("SOUFFLE DU VIDE — OBSERVEZ LE DÉPART DU RAYON !", "phase", VOID_BREATH_ID)
             C_Timer.After(16, function() voidBreathActive = false end)
+        elseif spellID == SHADOWCLAW_SLAM_ID    then OnShadowclawSlam()
+        elseif spellID == PARASITE_EXPULSION_ID then OnParasiteExpulsion()
+        elseif spellID == PRIMORDIAL_ROAR_ID    then OnPrimordialRoar()
         end
     end
 
@@ -309,15 +290,17 @@ end
 
 -- ─── Reset ────────────────────────────────────────────────────────────────────
 local function ResetState()
-    inFight          = false
-    slamCount        = 0
-    addKillCount     = 0
-    blistered        = false
-    smashedStacks    = 0
-    voidBreathActive = false
-    activeTimers     = {}
-    fixatedPlayers   = {}
-    classCache       = {}
+    inFight           = false
+    slamCount         = 0
+    addKillCount      = 0
+    blistered         = false
+    smashedStacks     = 0
+    voidBreathActive  = false
+    fixatedPlayers    = {}
+    classCache        = {}
+    slamCooldown      = false
+    parasiteCooldown  = false
+    roarCooldown      = false
     M:HideRLNote()
     M:ProgressBarHide(1)
     M:ProgressBarHide(2)
@@ -328,8 +311,6 @@ end
 frame:RegisterEvent("ENCOUNTER_START")
 frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
-frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
-frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED")
 frame:RegisterUnitEvent("UNIT_AURA", "player")
 
 frame:SetScript("OnEvent", function(_, event, ...)
@@ -342,7 +323,7 @@ frame:SetScript("OnEvent", function(_, event, ...)
             ResetState()
             inFight = true
             RegisterCLEU()
-            BuildClassCache()   -- pré-remplit le cache nom→classe pour la note RL
+            BuildClassCache()
         end
 
     elseif event == "ENCOUNTER_END" then
@@ -358,14 +339,6 @@ frame:SetScript("OnEvent", function(_, event, ...)
 
     elseif event == "PLAYER_ENTERING_WORLD" then
         ResetState()
-
-    elseif event == "ENCOUNTER_TIMELINE_EVENT_ADDED" then
-        if not inFight then return end
-        OnTimelineAdded(...)
-
-    elseif event == "ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED" then
-        if not inFight then return end
-        OnTimelineStateChanged(...)
 
     elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
         if not inFight then return end
