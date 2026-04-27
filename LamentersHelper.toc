@@ -2,7 +2,7 @@
 ## Title: Lamenters Helper
 ## Notes: Private raid helper for Lamenters guild
 ## Author: Thiriall
-## Version: 1.1
+## Version: 1.2
 ## OptionalDeps: LibSharedMedia-3.0
 
 ## SavedVariables: LamentersHelperDB

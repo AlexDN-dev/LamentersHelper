@@ -28,7 +28,6 @@ local INTERMISSION_DURATION = 120
 local inFight        = false
 local trackedAuras   = {}
 local activeTimers   = {}
-local cleuRegistered = false
 local breathCooldown = false  -- anti-spam si double event
 local howlCooldown   = false
 
@@ -42,25 +41,6 @@ end
 local function ShowPrivate(msg, spellID)
     M:ShowPrivateText(msg, spellID)
     if M.PlayAlertSound then M:PlayAlertSound("private") end
-end
-
--- ─── CLEU lazy-register ───────────────────────────────────────────────────────
-local function RegisterCLEU()
-    if not cleuRegistered then
-        C_Timer.After(0, function()
-            frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-            cleuRegistered = true
-        end)
-    end
-end
-
-local function UnregisterCLEU()
-    if cleuRegistered then
-        C_Timer.After(0, function()
-            frame:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-            cleuRegistered = false
-        end)
-    end
 end
 
 -- ─── Handlers CLEU ───────────────────────────────────────────────────────────
@@ -162,7 +142,6 @@ local function ResetState()
     M:ProgressBarHide(2)
     M:ProgressBarHide(3)
     M:ProgressBarHide(4)
-    UnregisterCLEU()
 end
 
 -- ─── Événements ───────────────────────────────────────────────────────────────
@@ -171,6 +150,7 @@ frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
 frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED")
+frame:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 frame:RegisterUnitEvent("UNIT_AURA", "player")
 
 frame:SetScript("OnEvent", function(_, event, ...)
@@ -182,7 +162,6 @@ frame:SetScript("OnEvent", function(_, event, ...)
         if encounterID == ENCOUNTER_ID then
             ResetState()
             inFight = true
-            RegisterCLEU()
         end
 
     elseif event == "ENCOUNTER_END" then

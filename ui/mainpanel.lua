@@ -115,6 +115,23 @@ do
     vdiv:SetColorTexture(0.13, 0.13, 0.17, 1)
 end
 
+-- ScrollFrame intérieur pour le menu nav (résistant aux débordements)
+local menuScrollFrame = CreateFrame("ScrollFrame", "LHNavScroll", menu)
+menuScrollFrame:SetPoint("TOPLEFT",     menu, "TOPLEFT",     0, 0)
+menuScrollFrame:SetPoint("BOTTOMRIGHT", menu, "BOTTOMRIGHT", 0, 0)
+menuScrollFrame:EnableMouseWheel(true)
+
+local menuContent = CreateFrame("Frame", nil, menuScrollFrame)
+menuContent:SetWidth(180)
+menuContent:SetHeight(600)   -- ajusté après la création de tous les boutons
+menuScrollFrame:SetScrollChild(menuContent)
+
+menuScrollFrame:SetScript("OnMouseWheel", function(self, delta)
+    local current  = self:GetVerticalScroll()
+    local maxScroll = math.max(0, menuContent:GetHeight() - self:GetHeight())
+    self:SetVerticalScroll(math.max(0, math.min(maxScroll, current - delta * 30)))
+end)
+
 -- ─── Zone de contenu ──────────────────────────────────────────────────────────
 local content = CreateFrame("Frame", nil, panel)
 content:SetPoint("TOPLEFT",     menu,  "TOPRIGHT",    16,  0)
@@ -138,26 +155,26 @@ local function SetNavActive(btn)
 end
 
 local function MakeNavSection(label)
-    local fs = menu:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-    fs:SetPoint("TOPLEFT", menu, "TOPLEFT", 12, navY)
+    local fs = menuContent:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    fs:SetPoint("TOPLEFT", menuContent, "TOPLEFT", 12, navY)
     fs:SetText(label)
     fs:SetTextColor(0.85, 0.20, 0.20, 1)
     navY = navY - 20
 end
 
 local function NavSeparator()
-    local t = menu:CreateTexture(nil, "ARTWORK")
+    local t = menuContent:CreateTexture(nil, "ARTWORK")
     t:SetHeight(1)
-    t:SetPoint("TOPLEFT",  menu, "TOPLEFT",  10, navY + 4)
-    t:SetPoint("TOPRIGHT", menu, "TOPRIGHT", -10, navY + 4)
+    t:SetPoint("TOPLEFT",  menuContent, "TOPLEFT",  10, navY + 4)
+    t:SetPoint("TOPRIGHT", menuContent, "TOPRIGHT", -10, navY + 4)
     t:SetColorTexture(0.13, 0.13, 0.17, 1)
     navY = navY - 14
 end
 
 local function MakeNavBtn(label, onClick)
-    local btn = CreateFrame("Button", nil, menu)
+    local btn = CreateFrame("Button", nil, menuContent)
     btn:SetSize(180, 30)
-    btn:SetPoint("TOPLEFT", menu, "TOPLEFT", 0, navY)
+    btn:SetPoint("TOPLEFT", menuContent, "TOPLEFT", 0, navY)
     navY = navY - 31
 
     local bgTex = btn:CreateTexture(nil, "BACKGROUND")
@@ -242,6 +259,9 @@ NavSeparator()
 MakeNavSection("OUTILS")
 MakeNavBtn("Verif Addon", function() ShowSection("sync")    end)
 MakeNavBtn("Options",     function() ShowSection("options") end)
+
+-- Ajuste la hauteur du contenu au nombre réel de boutons créés
+menuContent:SetHeight(-navY + 20)
 
 -- ─── Bouton stylisé (partagé avec options/sync) ──────────────────────────────
 function M.MakeBtn(parent, label, w, h)
