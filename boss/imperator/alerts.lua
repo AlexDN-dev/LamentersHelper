@@ -85,40 +85,44 @@ local function OnVoidMarked(destName)
     end
 end
 
--- ─── Timeline callbacks (durée → abilité) ────────────────────────────────────
-local function BuildTimerCallback(d)
-    if d == 84 or d == 12 or d == 94 or d == 14 then
-        return function() ShowAlert("SHADOW'S ADVANCE — PHASE PLATEAU !", "phase") end
-    elseif d == 48 or d == 18 or d == 60 then
-        return function() ShowAlert("OBLIVION'S WRATH — BOUGEZ !") end
-    elseif d == 20 or d == 32 then
-        return function() ShowAlert("UMBRAL COLLAPSE — SOAK !", "soak") end
-    elseif d == 125 or d == 160 then
-        return function() ShowAlert("VOID FALL — ÉVITEZ LES ZONES !") end
-    end
-    return nil
+-- ─── Spell IDs CLEU (non taintés — source BigWigs Averzian.lua) ──────────────
+local SPELL_SHADOWS_ADVANCE  = 1251361
+local SPELL_OBLIVIONS_WRATH  = 1260712
+local SPELL_UMBRAL_COLLAPSE  = 1249262
+local SPELL_VOID_FALL        = 1258883
+
+-- ─── Handlers CLEU ───────────────────────────────────────────────────────────
+local shadowsCooldown  = false
+local wraithCooldown   = false
+local collapseCooldown = false
+local fallCooldown     = false
+
+local function OnShadowsAdvance()
+    if shadowsCooldown then return end
+    shadowsCooldown = true
+    C_Timer.After(5, function() shadowsCooldown = false end)
+    ShowAlert("SHADOW'S ADVANCE — PHASE PLATEAU !", "phase", SPELL_SHADOWS_ADVANCE)
 end
 
-local function OnTimelineAdded(eventInfo)
-    if not eventInfo or eventInfo.source ~= 0 then return end
-    local d  = math.floor(eventInfo.duration + 0.5)
-    local cb = BuildTimerCallback(d)
-    if cb then
-        activeTimers[eventInfo.id] = cb
-    elseif M.config and M.config.debugEncounter then
-        print(string.format("|cff00ff00LH Debug|r IMPERATOR TIMELINE dur=%.1f id=%d", eventInfo.duration, eventInfo.id))
-    end
+local function OnOblivionsWrath()
+    if wraithCooldown then return end
+    wraithCooldown = true
+    C_Timer.After(5, function() wraithCooldown = false end)
+    ShowAlert("OBLIVION'S WRATH — BOUGEZ !", "global", SPELL_OBLIVIONS_WRATH)
 end
 
-local function OnTimelineStateChanged(eventID)
-    local state = C_EncounterTimeline.GetEventState(eventID)
-    if state == 2 then
-        local cb = activeTimers[eventID]
-        if cb then cb() end
-    end
-    if state == 2 or state == 3 then
-        activeTimers[eventID] = nil
-    end
+local function OnUmbralCollapse()
+    if collapseCooldown then return end
+    collapseCooldown = true
+    C_Timer.After(5, function() collapseCooldown = false end)
+    ShowAlert("UMBRAL COLLAPSE — SOAK !", "soak", SPELL_UMBRAL_COLLAPSE)
+end
+
+local function OnVoidFall()
+    if fallCooldown then return end
+    fallCooldown = true
+    C_Timer.After(5, function() fallCooldown = false end)
+    ShowAlert("VOID FALL — ÉVITEZ LES ZONES !", "global", SPELL_VOID_FALL)
 end
 
 -- ─── UNIT_AURA : auras privées du joueur ─────────────────────────────────────
@@ -128,23 +132,20 @@ local function OnUnitAura(unit)
     if umbral and not trackedAuras.umbral then
         trackedAuras.umbral = true
         ShowPrivate("UMBRAL COLLAPSE — ALLEZ AU MARQUEUR !", 1249265)
-        local dur = (umbral.expirationTime and umbral.expirationTime > 0)
-                    and (umbral.expirationTime - GetTime())
-                    or (umbral.duration or 8)
-        M:ProgressBarCountdown(1, dur, "UMBRAL COLLAPSE", "soak", 1249265)
     elseif not umbral then
         trackedAuras.umbral = nil
-        M:ProgressBarHide(1)
     end
 end
 
 -- ─── Reset ────────────────────────────────────────────────────────────────────
 local function ResetState()
-    inFight       = false
-    trackedAuras  = {}
-    activeTimers  = {}
-    voidMarkCount = 0
-    M:ProgressBarHide(1)
+    inFight          = false
+    trackedAuras     = {}
+    voidMarkCount    = 0
+    shadowsCooldown  = false
+    wraithCooldown   = false
+    collapseCooldown = false
+    fallCooldown     = false
     UnregisterCLEU()
 end
 
@@ -152,8 +153,6 @@ end
 frame:RegisterEvent("ENCOUNTER_START")
 frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
-frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
-frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED")
 frame:RegisterUnitEvent("UNIT_AURA", "player")
 
 frame:SetScript("OnEvent", function(_, event, ...)
@@ -182,14 +181,6 @@ frame:SetScript("OnEvent", function(_, event, ...)
     elseif event == "PLAYER_ENTERING_WORLD" then
         ResetState()
 
-    elseif event == "ENCOUNTER_TIMELINE_EVENT_ADDED" then
-        if not inFight then return end
-        OnTimelineAdded(...)
-
-    elseif event == "ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED" then
-        if not inFight then return end
-        OnTimelineStateChanged(...)
-
     elseif event == "UNIT_AURA" then
         if not inFight then return end
         OnUnitAura(...)
@@ -197,8 +188,14 @@ frame:SetScript("OnEvent", function(_, event, ...)
     elseif event == "COMBAT_LOG_EVENT_UNFILTERED" then
         if not inFight then return end
         local _, subevent, _, _, _, _, _, _, destName, _, _, spellId = CombatLogGetCurrentEventInfo()
-        if subevent == "SPELL_AURA_APPLIED" and spellId == VOID_MARKED_ID then
-            OnVoidMarked(destName)
+        if subevent == "SPELL_AURA_APPLIED" then
+            if spellId == VOID_MARKED_ID then OnVoidMarked(destName) end
+        elseif subevent == "SPELL_CAST_START" then
+            if     spellId == SPELL_SHADOWS_ADVANCE then OnShadowsAdvance()
+            elseif spellId == SPELL_OBLIVIONS_WRATH then OnOblivionsWrath()
+            elseif spellId == SPELL_UMBRAL_COLLAPSE  then OnUmbralCollapse()
+            elseif spellId == SPELL_VOID_FALL        then OnVoidFall()
+            end
         end
     end
 end)

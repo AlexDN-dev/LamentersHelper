@@ -40,10 +40,10 @@ local function GetPlayerRaidGroup()
 end
 
 -- ─── État du combat ───────────────────────────────────────────────────────────
-local inFight        = false
-local activeTimers   = {}
-local trackedAuras   = {}
-local cleuRegistered = false
+local inFight         = false
+local trackedAuras    = {}
+local cleuRegistered  = false
+local causticCooldown = false  -- anti-spam Caustic Phlegm (appliqué sur tout le raid)
 
 local frame = CreateFrame("Frame")
 
@@ -185,35 +185,12 @@ local function OnRavenousDiveCast()
     ShowAlert("RAVENOUS DIVE — RETOUR PHASE 1 !", "phase", RAVENOUS_DIVE_ID)
 end
 
--- ─── Timeline : Caustic Phlegm (DoT raid) ────────────────────────────────────
--- Durée 12s — confirmée BigWigs
-local function BuildTimerCallback(d)
-    if d == 12 then
-        return function() ShowAlert("CAUSTIC PHLEGM — DOT RAID !", "global", CAUSTIC_PHLEGM_ID) end
-    end
-    return nil
-end
-
-local function OnTimelineAdded(eventInfo)
-    if not eventInfo or eventInfo.source ~= 0 then return end
-    local d  = math.floor(eventInfo.duration + 0.5)
-    local cb = BuildTimerCallback(d)
-    if cb then
-        activeTimers[eventInfo.id] = cb
-    elseif M.config and M.config.debugEncounter then
-        print(string.format("|cff00ff00LH Debug|r CHIMAERUS TIMELINE dur=%.1f id=%d", eventInfo.duration, eventInfo.id))
-    end
-end
-
-local function OnTimelineStateChanged(eventID)
-    local state = C_EncounterTimeline.GetEventState(eventID)
-    if state == 2 then
-        local cb = activeTimers[eventID]
-        if cb then cb() end
-    end
-    if state == 2 or state == 3 then
-        activeTimers[eventID] = nil
-    end
+-- ─── Caustic Phlegm : DoT raid (CLEU — SPELL_AURA_APPLIED) ───────────────────
+local function OnCausticPhlegm()
+    if causticCooldown then return end
+    causticCooldown = true
+    C_Timer.After(10, function() causticCooldown = false end)
+    ShowAlert("CAUSTIC PHLEGM — DOT RAID !", "global", CAUSTIC_PHLEGM_ID)
 end
 
 -- ─── UNIT_AURA : Dissonance (mauvais realm) ──────────────────────────────────
@@ -238,11 +215,11 @@ end
 -- ─── Reset ────────────────────────────────────────────────────────────────────
 local function ResetState()
     inFight          = false
-    activeTimers     = {}
     trackedAuras     = {}
     miasmaCount      = 0
     soakCount        = 0
     fearCryCooldown  = false
+    causticCooldown  = false
     M:ProgressBarHide(1)
     M:ProgressBarHide(2)
     UnregisterCLEU()
@@ -285,8 +262,6 @@ end
 frame:RegisterEvent("ENCOUNTER_START")
 frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
-frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
-frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED")
 frame:RegisterUnitEvent("UNIT_AURA", "player")
 
 frame:SetScript("OnEvent", function(_, event, ...)
@@ -312,14 +287,6 @@ frame:SetScript("OnEvent", function(_, event, ...)
     elseif event == "PLAYER_ENTERING_WORLD" then
         ResetState()
 
-    elseif event == "ENCOUNTER_TIMELINE_EVENT_ADDED" then
-        if not inFight then return end
-        OnTimelineAdded(...)
-
-    elseif event == "ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED" then
-        if not inFight then return end
-        OnTimelineStateChanged(...)
-
     elseif event == "UNIT_AURA" then
         if not inFight then return end
         OnUnitAura(...)
@@ -329,10 +296,11 @@ frame:SetScript("OnEvent", function(_, event, ...)
         local _, subevent, _, _, srcName, _, _, _, destName, _, _, spellId = CombatLogGetCurrentEventInfo()
 
         if subevent == "SPELL_AURA_APPLIED" then
-            if    spellId == CONSUMING_MIASMA_ID then OnMiasmaApplied(destName)
-            elseif spellId == RIFT_MADNESS_ID    then OnRiftMadnessApplied(destName)
+            if    spellId == CONSUMING_MIASMA_ID  then OnMiasmaApplied(destName)
+            elseif spellId == RIFT_MADNESS_ID     then OnRiftMadnessApplied(destName)
             elseif spellId == ALNDUST_UPHEAVAL_ID then OnUpheavalApplied(destName)
-            elseif spellId == RENDING_TEAR_ID    then OnRendingTearApplied(destName)
+            elseif spellId == RENDING_TEAR_ID     then OnRendingTearApplied(destName)
+            elseif spellId == CAUSTIC_PHLEGM_ID   then OnCausticPhlegm()
             end
 
         elseif subevent == "SPELL_CAST_START" then

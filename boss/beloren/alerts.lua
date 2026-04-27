@@ -6,7 +6,7 @@ local addonName, M = ...
 -- qui interrompt les adds, qui soak les cônes tanks.
 -- IMPORTANT : eventInfo.spellID tainté en Midnight → identification Timeline par durée.
 -- CLEU utilisé pour : auras joueurs, casts boss/adds, marqueurs de soak.
-local ENCOUNTER_ID = 3182   -- à confirmer via debugEncounter si incorrect
+local ENCOUNTER_ID = 3183   -- PLACEHOLDER — à confirmer via debugEncounter
 
 -- ─── Spell IDs ────────────────────────────────────────────────────────────────
 
@@ -49,7 +49,6 @@ local ASHEN_BENEDICTION_ID   = 1262573   -- Burst Feu + stack réduction soins (
 
 -- ─── État du combat ───────────────────────────────────────────────────────────
 local inFight             = false
-local activeTimers        = {}
 local trackedAuras        = {}
 local cleuRegistered      = false
 local myAura              = nil        -- "VOID" | "LIGHT" | nil  (auto-détecté ou config)
@@ -61,119 +60,6 @@ local rebirthCooldown     = false
 local deathDropCooldown   = false
 
 local frame = CreateFrame("Frame")
-
--- ─── Icône d'aura persistante ────────────────────────────────────────────────
--- Affichée en permanence pendant tout le fight pour rappeler VIDE ou LUMIÈRE.
--- Icônes officielles Midnight 12.0 (file IDs Wowhead confirmés) :
-local ICON_LIGHT = 7636520   -- inv_12_dualityphoenix_holy_feather  (Light Feather)
-local ICON_VOID  = 7636525   -- inv_12_dualityphoenix_void_feather   (Void Feather)
-
-local MASK_TEX = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
-
-local auraIconFrame = nil
-
-local function BuildAuraIconFrame()
-    if auraIconFrame then return end
-    local x    = M.config and M.config.belorenAuraIconX    or 0
-    local y    = M.config and M.config.belorenAuraIconY    or -200
-    local size = M.config and M.config.belorenAuraIconSize or 100
-
-    local f = CreateFrame("Frame", "LHBelorenAuraIcon", UIParent)
-    f:SetSize(size, size)
-    f:SetPoint("CENTER", UIParent, "CENTER", x, y)
-    f:SetFrameStrata("HIGH")
-    f:SetMovable(true)
-    f:SetClampedToScreen(true)
-    f:EnableMouse(true)
-    f:RegisterForDrag("LeftButton")
-
-    -- ── Anneau coloré (cercle légèrement plus grand que l'icône) ──────────────
-    -- Visible comme une bordure de 6px autour de l'icône.
-    local ring = f:CreateTexture(nil, "BACKGROUND")
-    ring:SetPoint("TOPLEFT", -6, 6)
-    ring:SetPoint("BOTTOMRIGHT", 6, -6)
-    local ringMask = f:CreateMaskTexture()
-    ringMask:SetPoint("TOPLEFT", -6, 6)
-    ringMask:SetPoint("BOTTOMRIGHT", 6, -6)
-    ringMask:SetTexture(MASK_TEX, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-    ring:AddMaskTexture(ringMask)
-    f._ring = ring
-
-    -- ── Fond sombre circulaire (cache le centre de l'anneau) ──────────────────
-    local bg = f:CreateTexture(nil, "BORDER")
-    bg:SetAllPoints()
-    bg:SetColorTexture(0.03, 0.01, 0.06, 0.92)
-    local bgMask = f:CreateMaskTexture()
-    bgMask:SetAllPoints()
-    bgMask:SetTexture(MASK_TEX, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
-    bg:AddMaskTexture(bgMask)
-
-    -- ── Icône principale (masquée en cercle, pleine résolution, sans tinting) ──
-    local icon = f:CreateTexture(nil, "ARTWORK")
-    icon:SetAllPoints()
-    icon:AddMaskTexture(bgMask)   -- même masque circulaire que le fond
-    f._icon = icon
-
-    -- ── Texte d'aura sous l'icône ─────────────────────────────────────────────
-    local lbl = f:CreateFontString(nil, "OVERLAY")
-    lbl:SetFont("Fonts\\FRIZQT__.TTF", 16, "OUTLINE")
-    lbl:SetPoint("TOP", f, "BOTTOM", 0, -6)
-    f._label = lbl
-
-    -- ── Drag hors combat ──────────────────────────────────────────────────────
-    f:SetScript("OnDragStart", function(self)
-        if InCombatLockdown() then return end
-        self:StartMoving()
-    end)
-    f:SetScript("OnDragStop", function(self)
-        self:StopMovingOrSizing()
-        if M.config then
-            local cx, cy = self:GetCenter()
-            local px, py = UIParent:GetCenter()
-            M.config.belorenAuraIconX = math.floor(cx - px + 0.5)
-            M.config.belorenAuraIconY = math.floor(cy - py + 0.5)
-            if M.SaveConfig then M:SaveConfig() end
-        end
-    end)
-
-    f:Hide()
-    auraIconFrame = f
-end
-
-local function UpdateAuraIconFrame()
-    if not auraIconFrame then BuildAuraIconFrame() end
-    local aura = GetMyAura()
-
-    if not aura or not inFight then
-        auraIconFrame:Hide()
-        return
-    end
-
-    if aura == "VOID" then
-        -- Icône Void Feather officielle — couleurs natives, aucun tinting
-        auraIconFrame._icon:SetTexture(ICON_VOID)
-        auraIconFrame._ring:SetColorTexture(0.50, 0.08, 0.88, 1.0)  -- anneau violet
-        auraIconFrame._label:SetText("|cffb05be8VIDE|r")
-    else
-        -- Icône Light Feather officielle — couleurs natives, aucun tinting
-        auraIconFrame._icon:SetTexture(ICON_LIGHT)
-        auraIconFrame._ring:SetColorTexture(1.0, 0.78, 0.05, 1.0)   -- anneau doré
-        auraIconFrame._label:SetText("|cffffcc00LUMI\195\136RE|r")
-    end
-
-    auraIconFrame:Show()
-end
-
--- API publique — appelée depuis options.lua pour repositionner/redimensionner
-function M:RepositionBelorenAuraIcon()
-    if not auraIconFrame then return end
-    local x    = M.config and M.config.belorenAuraIconX    or 0
-    local y    = M.config and M.config.belorenAuraIconY    or -200
-    local size = M.config and M.config.belorenAuraIconSize or 100
-    auraIconFrame:ClearAllPoints()
-    auraIconFrame:SetPoint("CENTER", UIParent, "CENTER", x, y)
-    auraIconFrame:SetSize(size, size)
-end
 
 -- ─── Détection et label de l'aura ─────────────────────────────────────────────
 local function GetMyAura()
@@ -390,7 +276,7 @@ local function OnRebirth()
         "RENAISSANCE — TUEZ L'ŒUF  |cffffff0015s|r  !",
         "phase", REBIRTH_ID
     )
-    M:ProgressBarCountdown(2, 15, "RENAISSANCE", "soak", REBIRTH_ID)
+    M:ProgressBarCountdown(2, 15, "RENAISSANCE — TUEZ L'ŒUF", "soak")
 
     -- Rappel à T+10s (5s restantes)
     C_Timer.After(10, function()
@@ -446,8 +332,8 @@ local function OnIncubationFlames()
         "PHASE 2 — REJOIGNEZ VOS ZONES  |cffa0ffa0DPS L'ŒUF !|r",
         "phase", INCUBATION_FLAMES_ID
     )
-    M:ShowPrivateText("VA DANS LA ZONE " .. AuraLabel(myA) .. " !", INCUBATION_FLAMES_ID)
-    M:ProgressBarCountdown(1, 30, "INCUBATION DES FLAMMES", "phase", INCUBATION_FLAMES_ID)
+    ShowPrivate("VA DANS LA ZONE " .. AuraLabel(myA) .. " !", INCUBATION_FLAMES_ID)
+    M:ProgressBarCountdown(1, 30, "PHASE 2 — DPS L'ŒUF !", "phase")
 
     -- Rappel d'aura 3s après la transition (beaucoup de mouvement)
     C_Timer.After(3, function()
@@ -471,52 +357,40 @@ local function OnAshenBenedictionCast()
 end
 
 -- ─── UNIT_AURA : auto-détection de l'aura Vide / Lumière ─────────────────────
--- Réévaluée à CHAQUE tick : le boss peut changer l'aura en cours de combat.
 local function OnUnitAura(unit)
     if unit ~= "player" then return end
 
-    -- Détecter l'aura active (par nom du sort, résistant au split d'IDs)
-    local detected = nil
-
+    -- Tentative de détection de l'aura par nom du sort (résistant au split d'IDs)
     local auraInfo = C_UnitAuras.GetPlayerAuraBySpellID(VOID_CONVERGENCE_ID)
-    if auraInfo then
-        local nameLow = (auraInfo.name or ""):lower()
+    if auraInfo and not trackedAuras.aura then
+        local nameLow   = (auraInfo.name or ""):lower()
+        local detected  = nil
         if nameLow:find("vide") or nameLow:find("void") then
             detected = "VOID"
         elseif nameLow:find("lumi") or nameLow:find("light") then
             detected = "LIGHT"
         end
-    end
-
-    -- Si on a un 2e ID distinct pour la lumière, vérifier aussi
-    if not detected and LIGHT_CONVERGENCE_ID ~= VOID_CONVERGENCE_ID then
-        local lightInfo = C_UnitAuras.GetPlayerAuraBySpellID(LIGHT_CONVERGENCE_ID)
-        if lightInfo then
-            detected = "LIGHT"
-        end
-    end
-
-    -- Mise à jour uniquement si l'aura a changé (détection initiale ou changement en combat)
-    if detected and detected ~= myAura then
-        local prev = myAura
-        myAura            = detected
-        trackedAuras.aura = true
-        if prev then
-            -- Changement d'aura en cours de combat (boss switch Vide ↔ Lumière)
-            ShowPrivate(
-                "⚠ AURA CHANGÉE : " .. AuraLabel(prev) .. "  →  " .. AuraLabel(detected),
-                VOID_CONVERGENCE_ID
-            )
-        else
-            -- Première détection en début de combat
+        if detected then
+            myAura             = detected
+            trackedAuras.aura  = true
+            -- Affichage immédiat de l'aura détectée
             ShowPrivate("AURA DÉTECTÉE : " .. AuraLabel(myAura), VOID_CONVERGENCE_ID)
         end
-        UpdateAuraIconFrame()  -- met à jour l'icône immédiatement
-    elseif not detected and not inFight then
-        -- Hors combat : on peut reset (wipe, entre les essais)
-        trackedAuras.aura = nil
+    elseif not auraInfo then
+        -- Aura absente (wipe / reset) — on garde la dernière valeur connue en combat
+        -- pour éviter de perdre l'info en cas de reapplication
+        if not inFight then trackedAuras.aura = nil end
     end
-    -- Si detected == nil en combat : aura absente temporairement (reapplication) → on garde myAura
+
+    -- Si on a un 2e ID pour la lumière, vérifier aussi
+    if LIGHT_CONVERGENCE_ID ~= VOID_CONVERGENCE_ID then
+        local lightInfo = C_UnitAuras.GetPlayerAuraBySpellID(LIGHT_CONVERGENCE_ID)
+        if lightInfo and not trackedAuras.aura then
+            myAura            = "LIGHT"
+            trackedAuras.aura = true
+            ShowPrivate("AURA DÉTECTÉE : " .. AuraLabel("LIGHT"), LIGHT_CONVERGENCE_ID)
+        end
+    end
 
     -- Brûlures Éternelles (tank absorb + DoT)
     local eternBurns = C_UnitAuras.GetPlayerAuraBySpellID(ETERNAL_BURNS_ID)
@@ -528,42 +402,10 @@ local function OnUnitAura(unit)
     end
 end
 
--- ─── Timeline : Échos Rayonnants ─────────────────────────────────────────────
--- Les orbes sont un event récurrent → durée à confirmer via debugEncounter.
-local function BuildTimerCallback(d)
-    -- Échos Rayonnants — durée à confirmer en jeu via debugEncounter
-    if d == 45 or d == 46 or d == 47 then
-        return function() OnRadiantEchoes() end
-    end
-    return nil
-end
-
-local function OnTimelineAdded(eventInfo)
-    if not eventInfo or eventInfo.source ~= 0 then return end
-    local d  = math.floor(eventInfo.duration + 0.5)
-    local cb = BuildTimerCallback(d)
-    if cb then
-        activeTimers[eventInfo.id] = cb
-    elseif M.config and M.config.debugEncounter then
-        print(string.format("|cff00ff00LH Debug|r BELOREN TIMELINE dur=%.1f id=%d", eventInfo.duration, eventInfo.id))
-    end
-end
-
-local function OnTimelineStateChanged(eventID)
-    local state = C_EncounterTimeline.GetEventState(eventID)
-    if state == 2 then
-        local cb = activeTimers[eventID]
-        if cb then cb() end
-    end
-    if state == 2 or state == 3 then
-        activeTimers[eventID] = nil
-    end
-end
 
 -- ─── Reset ────────────────────────────────────────────────────────────────────
 local function ResetState()
     inFight           = false
-    activeTimers      = {}
     trackedAuras      = {}
     myAura            = nil
     currentPhase      = 1
@@ -577,7 +419,6 @@ local function ResetState()
     end
     M:ProgressBarHide(1)
     M:ProgressBarHide(2)
-    if auraIconFrame then auraIconFrame:Hide() end
     UnregisterCLEU()
 end
 
@@ -652,17 +493,10 @@ end
 frame:RegisterEvent("ENCOUNTER_START")
 frame:RegisterEvent("ENCOUNTER_END")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
-frame:RegisterEvent("PLAYER_LOGIN")
-frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_ADDED")
-frame:RegisterEvent("ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED")
 frame:RegisterUnitEvent("UNIT_AURA", "player")
 
 frame:SetScript("OnEvent", function(_, event, ...)
-    if event == "PLAYER_LOGIN" then
-        -- Pré-construit le frame dès le login pour éviter une création en plein combat
-        BuildAuraIconFrame()
-
-    elseif event == "ENCOUNTER_START" then
+    if event == "ENCOUNTER_START" then
         local encounterID, encounterName = ...
         if M.config and M.config.debugEncounter then
             print(string.format("|cff00ff00LH Debug|r START: %s (ID: %s)", tostring(encounterName), tostring(encounterID)))
@@ -672,8 +506,6 @@ frame:SetScript("OnEvent", function(_, event, ...)
             inFight = true
             RegisterCLEU()
             StartAuraReminder()
-            -- Affiche l'icône si l'aura est déjà connue (config manuelle)
-            UpdateAuraIconFrame()
         end
 
     elseif event == "ENCOUNTER_END" then
@@ -689,14 +521,6 @@ frame:SetScript("OnEvent", function(_, event, ...)
 
     elseif event == "PLAYER_ENTERING_WORLD" then
         ResetState()
-
-    elseif event == "ENCOUNTER_TIMELINE_EVENT_ADDED" then
-        if not inFight then return end
-        OnTimelineAdded(...)
-
-    elseif event == "ENCOUNTER_TIMELINE_EVENT_STATE_CHANGED" then
-        if not inFight then return end
-        OnTimelineStateChanged(...)
 
     elseif event == "UNIT_AURA" then
         if not inFight then return end
@@ -728,7 +552,10 @@ frame:SetScript("OnEvent", function(_, event, ...)
         -- ── SPELL_CAST_START ──────────────────────────────────────────────────
         elseif subevent == "SPELL_CAST_START" then
 
-            if spellId == GUARDIAN_EDICT_ID then
+            if spellId == RADIANT_ECHOES_ID then
+                OnRadiantEchoes()
+
+            elseif spellId == GUARDIAN_EDICT_ID then
                 OnGuardianEdictCast()
 
             elseif spellId == ERUPTION_ID then
